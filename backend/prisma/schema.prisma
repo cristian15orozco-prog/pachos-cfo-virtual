@@ -1,0 +1,388 @@
+// CFO Virtual — Pachos Supermarket
+// Esquema de base de datos. Ver docs/DATABASE.md para la referencia narrativa.
+// Este sistema es exclusivamente para Pachos Supermarket (no RR Importaciones).
+// Regla de diseño: ninguna tabla ni campo de este esquema modela pagos salientes,
+// transferencias, ACH o emisión de cheques. Solo registro, lectura y análisis.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Base de datos: Supabase (PostgreSQL). DATABASE_URL usa el connection pooler
+// (pgbouncer, puerto 6543) para la app; DIRECT_URL usa la conexión directa
+// (puerto 5432) que Prisma necesita para ejecutar migraciones.
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Usuarios, roles y auditoría
+// ─────────────────────────────────────────────────────────────────────────
+
+enum RoleName {
+  OWNER
+  ADMIN
+  ACCOUNTANT
+  EMPLOYEE
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        RoleName @unique
+  permissions Json // matriz granular de permisos, ver docs/SECURITY.md
+  users       User[]
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("roles")
+}
+
+model User {
+  id                       String    @id @default(uuid())
+  fullName                 String    @map("full_name")
+  email                    String    @unique
+  passwordHash             String    @map("password_hash")
+  roleId                   String    @map("role_id")
+  role                     Role      @relation(fields: [roleId], references: [id])
+  isActive                 Boolean   @default(true) @map("is_active")
+  employeeCanViewBalances  Boolean   @default(false) @map("employee_can_view_balances")
+  failedLoginAttempts      Int       @default(0) @map("failed_login_attempts")
+  lockedUntil              DateTime? @map("locked_until")
+  lastLoginAt              DateTime? @map("last_login_at")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  invoicesCreated Invoice[]     @relation("InvoiceCreatedBy")
+  checksCreated   Check[]       @relation("CheckCreatedBy")
+  attachments     Attachment[]
+  auditLogs       AuditLog[]
+  bankConnections BankConnection[]
+
+  @@map("users")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  userId       String?  @map("user_id")
+  user         User?    @relation(fields: [userId], references: [id])
+  roleAtTime   String?  @map("role_at_time")
+  action       String
+  entityType   String?  @map("entity_type")
+  entityId     String?  @map("entity_id")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Proveedores y categorías
+// ─────────────────────────────────────────────────────────────────────────
+
+model Provider {
+  id          String   @id @default(uuid())
+  name        String
+  contactName String?  @map("contact_name")
+  phone       String?
+  email       String?
+  address     String?
+  category    String?
+  notes       String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  invoices Invoice[]
+
+  @@map("providers")
+}
+
+model ExpenseCategory {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  invoices    Invoice[]
+
+  @@map("expense_categories")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Facturas y pagos (registro contable, no ejecución de pagos)
+// ─────────────────────────────────────────────────────────────────────────
+
+enum InvoiceStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+}
+
+model Invoice {
+  id              String          @id @default(uuid())
+  providerId      String          @map("provider_id")
+  provider        Provider        @relation(fields: [providerId], references: [id])
+  invoiceNumber   String          @map("invoice_number")
+  invoiceDate     DateTime        @map("invoice_date") @db.Date
+  dueDate         DateTime        @map("due_date") @db.Date
+  subtotal        Decimal         @db.Decimal(14, 2)
+  tax             Decimal         @db.Decimal(14, 2)
+  total           Decimal         @db.Decimal(14, 2)
+  categoryId      String?         @map("category_id")
+  category        ExpenseCategory? @relation(fields: [categoryId], references: [id])
+  status          InvoiceStatus   @default(PENDING)
+  notes           String?
+  isDuplicateFlag Boolean         @default(false) @map("is_duplicate_flag")
+  createdById     String          @map("created_by")
+  createdBy       User            @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  payments    Payment[]
+  checks      Check[]
+  attachments Attachment[]
+  alerts      Alert[]
+
+  @@unique([providerId, invoiceNumber])
+  @@index([status])
+  @@index([dueDate])
+  @@map("invoices")
+}
+
+enum PaymentMethod {
+  CHECK
+  BANK_TRANSACTION
+  CASH
+  OTHER
+}
+
+model Payment {
+  id                String            @id @default(uuid())
+  invoiceId         String            @map("invoice_id")
+  invoice           Invoice           @relation(fields: [invoiceId], references: [id])
+  checkId           String?           @map("check_id")
+  check             Check?            @relation(fields: [checkId], references: [id])
+  bankTransactionId String?           @map("bank_transaction_id")
+  bankTransaction   BankTransaction?  @relation(fields: [bankTransactionId], references: [id])
+  amount            Decimal           @db.Decimal(14, 2)
+  paidAt            DateTime          @map("paid_at") @db.Date
+  method            PaymentMethod
+  createdById       String            @map("created_by")
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  @@map("payments")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Cheques (registro de cheques ya emitidos manualmente por el dueño)
+// ─────────────────────────────────────────────────────────────────────────
+
+enum CheckStatus {
+  PENDING
+  ISSUED
+  CLEARED
+  CANCELLED
+}
+
+model Check {
+  id          String      @id @default(uuid())
+  checkNumber String      @map("check_number")
+  issueDate   DateTime    @map("issue_date") @db.Date
+  payee       String
+  bankName    String      @default("TD Bank") @map("bank_name")
+  amount      Decimal     @db.Decimal(14, 2)
+  invoiceId   String?     @map("invoice_id")
+  invoice     Invoice?    @relation(fields: [invoiceId], references: [id])
+  status      CheckStatus @default(PENDING)
+  clearedAt   DateTime?   @map("cleared_at") @db.Date
+  reconciled  Boolean     @default(false)
+  notes       String?
+  createdById String      @map("created_by")
+  createdBy   User        @relation("CheckCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  payments        Payment[]
+  attachments     Attachment[]
+  reconciliations Reconciliation[]
+  alerts          Alert[]
+
+  @@unique([checkNumber, bankName])
+  @@index([status])
+  @@map("checks")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Banco — TD Bank vía Plaid, SOLO LECTURA
+// ─────────────────────────────────────────────────────────────────────────
+
+enum BankConnectionStatus {
+  ACTIVE
+  ERROR
+  DISCONNECTED
+}
+
+model BankConnection {
+  id                     String                @id @default(uuid())
+  institutionName        String                @default("TD Bank") @map("institution_name")
+  plaidItemId            String                @unique @map("plaid_item_id")
+  accessTokenEncrypted   String                @map("access_token_encrypted") // AES-256-GCM, nunca texto plano
+  status                 BankConnectionStatus  @default(ACTIVE)
+  lastSyncedAt           DateTime?             @map("last_synced_at")
+  createdById            String                @map("created_by") // solo OWNER puede crear
+  createdBy              User                  @relation(fields: [createdById], references: [id])
+  createdAt              DateTime              @default(now()) @map("created_at")
+  updatedAt              DateTime              @updatedAt @map("updated_at")
+
+  transactions BankTransaction[]
+
+  @@map("bank_connections")
+}
+
+enum BankTransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  CHECK
+  FEE
+  OTHER
+}
+
+model BankTransaction {
+  id                  String              @id @default(uuid())
+  bankConnectionId    String              @map("bank_connection_id")
+  bankConnection      BankConnection      @relation(fields: [bankConnectionId], references: [id])
+  plaidTransactionId  String              @unique @map("plaid_transaction_id")
+  accountId           String              @map("account_id")
+  amount              Decimal             @db.Decimal(14, 2)
+  type                BankTransactionType @default(OTHER)
+  description         String?
+  category            String?
+  transactionDate     DateTime            @map("transaction_date") @db.Date
+  isClassified        Boolean             @default(false) @map("is_classified")
+  createdAt           DateTime            @default(now()) @map("created_at")
+
+  payments        Payment[]
+  reconciliations Reconciliation[]
+  alerts          Alert[]
+
+  @@index([type])
+  @@index([transactionDate])
+  @@map("bank_transactions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Conciliación
+// ─────────────────────────────────────────────────────────────────────────
+
+enum ReconciliationMatchType {
+  INVOICE
+  CHECK
+  DEPOSIT_SALE
+  UNKNOWN
+}
+
+enum ReconciliationStatus {
+  MATCHED
+  PARTIAL_MATCH
+  UNMATCHED
+  FLAGGED
+}
+
+model Reconciliation {
+  id                 String                  @id @default(uuid())
+  bankTransactionId  String                  @map("bank_transaction_id")
+  bankTransaction    BankTransaction         @relation(fields: [bankTransactionId], references: [id])
+  matchedType        ReconciliationMatchType @default(UNKNOWN) @map("matched_type")
+  matchedInvoiceId   String?                 @map("matched_invoice_id")
+  matchedCheckId     String?                 @map("matched_check_id")
+  matchedCheck       Check?                  @relation(fields: [matchedCheckId], references: [id])
+  amountDifference   Decimal                 @default(0) @db.Decimal(14, 2) @map("amount_difference")
+  status             ReconciliationStatus    @default(UNMATCHED)
+  notes              String?
+  createdAt          DateTime                @default(now()) @map("created_at")
+
+  @@map("reconciliations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Alertas
+// ─────────────────────────────────────────────────────────────────────────
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+model Alert {
+  id                String        @id @default(uuid())
+  type              String // código del catálogo, ver docs/BUSINESS_RULES.md
+  severity          AlertSeverity
+  message           String
+  entityType        String?       @map("entity_type")
+  invoiceId         String?       @map("invoice_id")
+  invoice           Invoice?      @relation(fields: [invoiceId], references: [id])
+  checkId           String?       @map("check_id")
+  check             Check?        @relation(fields: [checkId], references: [id])
+  bankTransactionId String?       @map("bank_transaction_id")
+  bankTransaction   BankTransaction? @relation(fields: [bankTransactionId], references: [id])
+  status            AlertStatus   @default(OPEN)
+  createdAt         DateTime      @default(now()) @map("created_at")
+  resolvedAt        DateTime?     @map("resolved_at")
+
+  @@index([status])
+  @@index([severity])
+  @@map("alerts")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Adjuntos
+// ─────────────────────────────────────────────────────────────────────────
+
+model Attachment {
+  id           String   @id @default(uuid())
+  invoiceId    String?  @map("invoice_id")
+  invoice      Invoice? @relation(fields: [invoiceId], references: [id])
+  checkId      String?  @map("check_id")
+  check        Check?   @relation(fields: [checkId], references: [id])
+  fileUrl      String   @map("file_url")
+  fileName     String   @map("file_name")
+  mimeType     String   @map("mime_type")
+  uploadedById String   @map("uploaded_by")
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("attachments")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Flujo de caja proyectado
+// ─────────────────────────────────────────────────────────────────────────
+
+model CashFlowProjection {
+  id               String   @id @default(uuid())
+  snapshotDate     DateTime @map("snapshot_date") @db.Date
+  availableToday   Decimal  @db.Decimal(14, 2) @map("available_today")
+  projected7d      Decimal  @db.Decimal(14, 2) @map("projected_7d")
+  projected15d     Decimal  @db.Decimal(14, 2) @map("projected_15d")
+  projected30d     Decimal  @db.Decimal(14, 2) @map("projected_30d")
+  expectedInflows  Decimal  @db.Decimal(14, 2) @map("expected_inflows")
+  expectedOutflows Decimal  @db.Decimal(14, 2) @map("expected_outflows")
+  willGoNegative   Boolean  @default(false) @map("will_go_negative")
+  negativeDate     DateTime? @map("negative_date") @db.Date
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@unique([snapshotDate])
+  @@map("cash_flow_projections")
+}

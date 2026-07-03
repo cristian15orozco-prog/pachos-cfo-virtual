@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build/
+.env
+*.local
+.claude/settings.local.json
+supabase/.temp/
+.DS_Store
