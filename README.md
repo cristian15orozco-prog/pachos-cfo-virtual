@@ -18,6 +18,19 @@ Sistema para organizar facturas, cheques, proveedores, pagos, cuentas por pagar 
 6. Qué movimientos no están explicados — Conciliación / Alertas.
 7. Si tendrá problemas de flujo de caja en 30 días — Flujo de Caja.
 
+## Despliegue en producción (nube gratuita)
+
+| Servicio | Proveedor | URL |
+|---|---|---|
+| Frontend | Vercel (free) | https://pachos-cfo-virtual-frontend.vercel.app |
+| Backend | Render (free) | https://pachos-cfo-virtual-backend.onrender.com |
+| Base de datos | Supabase (free) | proyecto `pachos-cfo-virtual` |
+| Código fuente | GitHub | https://github.com/cristian15orozco-prog/pachos-cfo-virtual |
+
+**Nota sobre el plan gratuito de Render**: el backend se "duerme" tras ~15 min sin tráfico; la primera petición después de eso tarda 30-50s en responder mientras despierta. Es aceptable para una herramienta interna de uso esporádico. Auto-deploy está activado: cualquier `git push` a `main` re-despliega el backend automáticamente; el frontend en Vercel también se puede re-desplegar con `cd frontend && vercel deploy --prod --scope pachos`.
+
+**Nota sobre visibilidad del repo**: quedó público temporalmente porque la GitHub App de Render no logró leer el repo privado. No contiene secretos (el `.env` real nunca se subió, solo `.env.example`). Si se quiere volver a privado, verifica primero en GitHub → Settings → Applications → Render que el repo esté marcado en "Repository access", y confirma con un push de prueba que el auto-deploy de Render lo sigue detectando antes de depender de ello.
+
 ## Documentación
 
 | Documento | Contenido |
