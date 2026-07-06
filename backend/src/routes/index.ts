@@ -13,6 +13,7 @@ import reportsRoutes from "./reports.routes";
 import cfoRoutes from "./cfo.routes";
 import auditLogsRoutes from "./auditLogs.routes";
 import dashboardRoutes from "./dashboard.routes";
+import categoriesRoutes from "./categories.routes";
 
 const router = Router();
 
@@ -32,5 +33,6 @@ router.use("/reports", reportsRoutes);
 router.use("/cfo", cfoRoutes);
 router.use("/audit-logs", auditLogsRoutes);
 router.use("/dashboard", dashboardRoutes);
+router.use("/categories", categoriesRoutes);
 
 export default router;
