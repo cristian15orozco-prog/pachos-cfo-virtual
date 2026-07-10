@@ -14,19 +14,28 @@ async function getBankAvailableBalance(): Promise<number> {
   return accounts.reduce((sum, acc) => sum + (acc.balances.available ?? acc.balances.current ?? 0), 0);
 }
 
-/** Promedio móvil de depósitos históricos, usado como estimador simple de entradas esperadas (fase 1). */
+/**
+ * Promedio móvil de entradas históricas, usado como estimador simple de
+ * entradas esperadas (fase 1). Combina dos fuentes:
+ *  - Depósitos bancarios (tarjeta/transferencias), sincronizados vía Plaid.
+ *  - Depósitos de efectivo (ventas en efectivo), registrados manualmente
+ *    en la caja — Plaid nunca ve ese dinero porque no pasa por el banco.
+ */
 async function estimateExpectedInflows(days: number): Promise<number> {
   const lookbackDays = 60;
   const since = new Date();
   since.setDate(since.getDate() - lookbackDays);
 
-  const deposits = await prisma.bankTransaction.findMany({
-    where: { type: "DEPOSIT", transactionDate: { gte: since } },
-  });
-  if (deposits.length === 0) return 0;
+  const [bankDeposits, cashDeposits] = await Promise.all([
+    prisma.bankTransaction.findMany({ where: { type: "DEPOSIT", transactionDate: { gte: since } } }),
+    prisma.cashMovement.findMany({ where: { type: "DEPOSIT", createdAt: { gte: since } } }),
+  ]);
 
-  const total = deposits.reduce((sum, d) => sum + Number(d.amount), 0);
-  const dailyAverage = total / lookbackDays;
+  const bankTotal = bankDeposits.reduce((sum, d) => sum + Number(d.amount), 0);
+  const cashTotal = cashDeposits.reduce((sum, d) => sum + Number(d.amount), 0);
+  if (bankTotal === 0 && cashTotal === 0) return 0;
+
+  const dailyAverage = (bankTotal + cashTotal) / lookbackDays;
   return dailyAverage * days;
 }
 
