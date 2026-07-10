@@ -11,14 +11,18 @@ router.get(
   "/",
   requireRole("ADMIN", "ACCOUNTANT"),
   asyncHandler(async (_req, res) => {
-    const [cashFlow, pendingInvoices, overdueInvoices, checksIssued, checksCleared, checksPending, openAlerts] =
+    const [cashFlow, pendingInvoices, overdueInvoices, checksIssued, checksCleared, checksPendingAgg, openAlerts] =
       await Promise.all([
         computeCashFlowProjection(),
         prisma.invoice.findMany({ where: { status: { in: ["PENDING", "PARTIAL"] } } }),
         prisma.invoice.findMany({ where: { status: "OVERDUE" } }),
         prisma.check.count({ where: { status: "ISSUED" } }),
         prisma.check.count({ where: { status: "CLEARED" } }),
-        prisma.check.findMany({ where: { status: { in: ["ISSUED", "PENDING"] } }, orderBy: { issueDate: "asc" }, take: 10 }),
+        prisma.check.aggregate({
+          where: { status: { in: ["ISSUED", "PENDING"] } },
+          _count: { _all: true },
+          _sum: { amount: true },
+        }),
         prisma.alert.findMany({ where: { status: "OPEN" }, orderBy: [{ severity: "desc" }, { createdAt: "desc" }], take: 20 }),
       ]);
 
@@ -37,7 +41,10 @@ router.get(
         overdueInvoices: { count: overdueInvoices.length, total: overdueInvoices.reduce((s, i) => s + Number(i.total), 0) },
         checksIssued,
         checksCleared,
-        checksPending: checksPending.length,
+        checksPending: {
+          count: checksPendingAgg._count._all,
+          total: Number(checksPendingAgg._sum.amount ?? 0),
+        },
         upcomingPayments: upcomingInvoices,
         cashFlowProjection: cashFlow.projections,
         alerts: openAlerts,

@@ -9,7 +9,7 @@ interface DashboardData {
   overdueInvoices: { count: number; total: number };
   checksIssued: number;
   checksCleared: number;
-  checksPending: number;
+  checksPending: { count: number; total: number };
   upcomingPayments: Array<{ id: string; invoiceNumber: string; total: string; dueDate: string; provider: { name: string } }>;
   cashFlowProjection: Record<string, number>;
   alerts: Array<{ id: string; message: string; severity: string }>;
@@ -37,7 +37,11 @@ export function DashboardPage() {
         <Metric label="Facturas vencidas" value={`${data.overdueInvoices.count} · ${money(data.overdueInvoices.total)}`} tone="danger" />
         <Metric label="Cheques emitidos" value={String(data.checksIssued)} />
         <Metric label="Cheques cobrados" value={String(data.checksCleared)} tone="success" />
-        <Metric label="Cheques pendientes" value={String(data.checksPending)} tone="warning" />
+        <Metric
+          label="Cheques sin cobrar"
+          value={`${data.checksPending.count} · ${money(data.checksPending.total)}`}
+          tone="warning"
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
