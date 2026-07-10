@@ -43,6 +43,16 @@ const emptyForm = {
   notes: "",
 };
 
+const emptyPaymentForm = {
+  method: "CASH" as "CASH" | "CHECK",
+  amount: "",
+  paidAt: "",
+  checkNumber: "",
+  payee: "",
+  bankName: "TD Bank",
+  issueDate: "",
+};
+
 export function InvoicesPage() {
   const { user } = useAuth();
   const canCreate = user?.role === "OWNER" || user?.role === "ADMIN";
@@ -50,6 +60,10 @@ export function InvoicesPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
+
+  const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
+  const [paymentForm, setPaymentForm] = useState(emptyPaymentForm);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["invoices"],
@@ -95,10 +109,53 @@ export function InvoicesPage() {
     onError: (err: Error) => setError(err.message),
   });
 
+  const recordPayment = useMutation({
+    mutationFn: () => {
+      if (!payingInvoice) return Promise.reject(new Error("Sin factura seleccionada"));
+      return api.post(`/invoices/${payingInvoice.id}/payments`, {
+        method: paymentForm.method,
+        amount: Number(paymentForm.amount) || 0,
+        paidAt: paymentForm.paidAt,
+        ...(paymentForm.method === "CHECK"
+          ? {
+              checkNumber: paymentForm.checkNumber,
+              payee: paymentForm.payee || payingInvoice.provider.name,
+              bankName: paymentForm.bankName,
+              issueDate: paymentForm.issueDate || paymentForm.paidAt,
+            }
+          : {}),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["checks"] });
+      queryClient.invalidateQueries({ queryKey: ["cashflow-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-register"] });
+      setPayingInvoice(null);
+      setPaymentForm(emptyPaymentForm);
+      setPaymentError(null);
+    },
+    onError: (err: Error) => setPaymentError(err.message),
+  });
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     createInvoice.mutate();
   }
+
+  function openPaymentModal(invoice: Invoice) {
+    setPayingInvoice(invoice);
+    setPaymentForm({ ...emptyPaymentForm, amount: invoice.total, paidAt: new Date().toISOString().slice(0, 10) });
+    setPaymentError(null);
+  }
+
+  function handlePaymentSubmit(e: FormEvent) {
+    e.preventDefault();
+    recordPayment.mutate();
+  }
+
+  const canPay = user?.role === "OWNER" || user?.role === "ADMIN";
 
   return (
     <div className="space-y-4">
@@ -127,6 +184,7 @@ export function InvoicesPage() {
               <th>Vence</th>
               <th>Estado</th>
               <th className="text-right">Total</th>
+              {canPay && <th></th>}
             </tr>
           </thead>
           <tbody>
@@ -141,6 +199,18 @@ export function InvoicesPage() {
                   <Badge tone={STATUS_TONE[inv.status]}>{inv.status}</Badge>
                 </td>
                 <td className="text-right">{money(inv.total)}</td>
+                {canPay && (
+                  <td className="text-right pl-3">
+                    {inv.status !== "PAID" && (
+                      <button
+                        onClick={() => openPaymentModal(inv)}
+                        className="text-xs text-pachos-green underline whitespace-nowrap"
+                      >
+                        Registrar Pago
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -265,6 +335,106 @@ export function InvoicesPage() {
                 className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {createInvoice.isPending ? "Guardando..." : "Guardar factura"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {payingInvoice && (
+        <Modal title={`Registrar Pago — ${payingInvoice.invoiceNumber}`} onClose={() => setPayingInvoice(null)}>
+          <form onSubmit={handlePaymentSubmit}>
+            <FormField label="Método de pago">
+              <select
+                className={inputClass}
+                value={paymentForm.method}
+                onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value as "CASH" | "CHECK" })}
+              >
+                <option value="CASH">Efectivo</option>
+                <option value="CHECK">Cheque</option>
+              </select>
+            </FormField>
+
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Monto">
+                <input
+                  required
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className={inputClass}
+                  value={paymentForm.amount}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                />
+              </FormField>
+              <FormField label="Fecha de pago">
+                <input
+                  required
+                  type="date"
+                  className={inputClass}
+                  value={paymentForm.paidAt}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, paidAt: e.target.value })}
+                />
+              </FormField>
+            </div>
+
+            {paymentForm.method === "CASH" && (
+              <p className="text-xs text-slate-500 bg-slate-50 rounded-md px-3 py-2">
+                Este monto se descontará directo del efectivo en caja.
+              </p>
+            )}
+
+            {paymentForm.method === "CHECK" && (
+              <>
+                <p className="text-xs text-slate-500 bg-slate-50 rounded-md px-3 py-2 mb-3">
+                  Se registrará un cheque nuevo con estado "Emitido". El saldo real de TD Bank no cambia hasta que
+                  el banco confirme que se cobró — mientras tanto, se descuenta virtualmente de la proyección de
+                  flujo de caja.
+                </p>
+                <FormField label="Número de cheque">
+                  <input
+                    required
+                    className={inputClass}
+                    value={paymentForm.checkNumber}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, checkNumber: e.target.value })}
+                  />
+                </FormField>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label="Beneficiario">
+                    <input
+                      className={inputClass}
+                      placeholder={payingInvoice.provider.name}
+                      value={paymentForm.payee}
+                      onChange={(e) => setPaymentForm({ ...paymentForm, payee: e.target.value })}
+                    />
+                  </FormField>
+                  <FormField label="Banco">
+                    <input
+                      className={inputClass}
+                      value={paymentForm.bankName}
+                      onChange={(e) => setPaymentForm({ ...paymentForm, bankName: e.target.value })}
+                    />
+                  </FormField>
+                </div>
+              </>
+            )}
+
+            {paymentError && <p className="text-sm text-red-600 mb-3">{paymentError}</p>}
+
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setPayingInvoice(null)}
+                className="text-sm px-4 py-2 rounded-md border border-slate-300"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={recordPayment.isPending}
+                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+              >
+                {recordPayment.isPending ? "Guardando..." : "Registrar pago"}
               </button>
             </div>
           </form>

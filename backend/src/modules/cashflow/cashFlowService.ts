@@ -1,6 +1,7 @@
 import { prisma } from "../../lib/prisma";
 import { getAccountsBalance } from "../../integrations/plaid/plaidClient";
 import { decryptToken } from "../../lib/tokenCrypto";
+import { getCashOnHand } from "./cashRegisterService";
 
 const PROJECTION_WINDOWS = [7, 15, 30] as const;
 
@@ -54,8 +55,8 @@ export interface CashFlowSummary {
 }
 
 /** Calcula y persiste el snapshot diario de flujo de caja. Ver docs/BUSINESS_RULES.md sección 5. */
-export async function computeCashFlowProjection(cashOnHand = 0): Promise<CashFlowSummary> {
-  const bankBalance = await getBankAvailableBalance();
+export async function computeCashFlowProjection(): Promise<CashFlowSummary> {
+  const [bankBalance, cashOnHand] = await Promise.all([getBankAvailableBalance(), getCashOnHand()]);
   const availableToday = bankBalance + cashOnHand;
 
   const projections: Record<number, number> = {};
@@ -110,14 +111,19 @@ export async function computeCashFlowProjection(cashOnHand = 0): Promise<CashFlo
   });
 
   if (willGoNegative) {
-    await prisma.alert.create({
-      data: {
-        type: "CASHFLOW_LOW_15D",
-        severity: "CRITICAL",
-        message: "El flujo de caja puede quedar bajo (o negativo) en los próximos días. Revisa pagos y cheques pendientes.",
-        entityType: "cashflow",
-      },
+    const alreadyOpen = await prisma.alert.findFirst({
+      where: { type: "CASHFLOW_LOW_15D", status: "OPEN" },
     });
+    if (!alreadyOpen) {
+      await prisma.alert.create({
+        data: {
+          type: "CASHFLOW_LOW_15D",
+          severity: "CRITICAL",
+          message: "El flujo de caja puede quedar bajo (o negativo) en los próximos días. Revisa pagos y cheques pendientes.",
+          entityType: "cashflow",
+        },
+      });
+    }
   }
 
   return {

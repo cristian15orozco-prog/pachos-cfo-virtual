@@ -10,6 +10,7 @@ import {
   findOverdueInvoices,
   findAmountMismatches,
 } from "../modules/invoices/invoiceDetectionService";
+import { recordInvoicePayment } from "../modules/invoices/invoicePaymentService";
 
 const router = Router();
 
@@ -135,6 +136,41 @@ router.delete(
   asyncHandler(async (req, res) => {
     await prisma.invoice.delete({ where: { id: req.params.id } });
     res.status(204).send();
+  })
+);
+
+const paymentSchema = z.object({
+  method: z.enum(["CASH", "CHECK"]),
+  amount: z.number().positive(),
+  paidAt: z.coerce.date(),
+  checkId: z.string().uuid().optional(),
+  checkNumber: z.string().optional(),
+  payee: z.string().optional(),
+  bankName: z.string().optional(),
+  issueDate: z.coerce.date().optional(),
+  notes: z.string().optional(),
+});
+
+router.post(
+  "/:id/payments",
+  requireRole("ADMIN"),
+  auditAction("INVOICE_PAYMENT_RECORD", "invoice"),
+  asyncHandler(async (req, res) => {
+    const parsed = paymentSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: { code: "INVALID_INPUT", message: parsed.error.message } });
+
+    if (parsed.data.method === "CHECK" && !parsed.data.checkId && !parsed.data.checkNumber) {
+      return res.status(400).json({
+        error: { code: "INVALID_INPUT", message: "Para pago con cheque, envía checkId o checkNumber." },
+      });
+    }
+
+    try {
+      const result = await recordInvoicePayment({ invoiceId: req.params.id, createdById: req.auth!.userId, ...parsed.data });
+      res.status(201).json({ data: result });
+    } catch (error) {
+      res.status(400).json({ error: { code: "PAYMENT_FAILED", message: (error as Error).message } });
+    }
   })
 );
 
