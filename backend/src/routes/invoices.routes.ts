@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { requireRole } from "../middleware/requireRole";
 import { auditAction } from "../middleware/auditLogger";
+import { asyncHandler } from "../middleware/asyncHandler";
 import {
   findPossibleDuplicates,
   findInvoicesWithoutReceipt,
@@ -12,43 +13,67 @@ import {
 
 const router = Router();
 
-router.get("/", requireRole("ADMIN", "ACCOUNTANT"), async (req, res) => {
-  const { status, providerId } = req.query;
-  const invoices = await prisma.invoice.findMany({
-    where: {
-      status: status ? (status as any) : undefined,
-      providerId: providerId ? String(providerId) : undefined,
-    },
-    include: { provider: true, category: true, attachments: true },
-    orderBy: { dueDate: "asc" },
-  });
-  res.json({ data: invoices });
-});
+router.get(
+  "/",
+  requireRole("ADMIN", "ACCOUNTANT"),
+  asyncHandler(async (req, res) => {
+    const { status, providerId } = req.query;
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        status: status ? (status as any) : undefined,
+        providerId: providerId ? String(providerId) : undefined,
+      },
+      include: { provider: true, category: true, attachments: true },
+      orderBy: { dueDate: "asc" },
+    });
+    res.json({ data: invoices });
+  })
+);
 
-router.get("/alerts/duplicates", requireRole("ADMIN"), async (_req, res) => {
-  const invoices = await prisma.invoice.findMany({ where: { isDuplicateFlag: true }, include: { provider: true } });
-  res.json({ data: invoices });
-});
+router.get(
+  "/alerts/duplicates",
+  requireRole("ADMIN"),
+  asyncHandler(async (_req, res) => {
+    const invoices = await prisma.invoice.findMany({ where: { isDuplicateFlag: true }, include: { provider: true } });
+    res.json({ data: invoices });
+  })
+);
 
-router.get("/alerts/overdue", requireRole("ADMIN"), async (_req, res) => {
-  res.json({ data: await findOverdueInvoices() });
-});
+router.get(
+  "/alerts/overdue",
+  requireRole("ADMIN"),
+  asyncHandler(async (_req, res) => {
+    res.json({ data: await findOverdueInvoices() });
+  })
+);
 
-router.get("/alerts/missing-receipt", requireRole("ADMIN"), async (_req, res) => {
-  res.json({ data: await findInvoicesWithoutReceipt() });
-});
+router.get(
+  "/alerts/missing-receipt",
+  requireRole("ADMIN"),
+  asyncHandler(async (_req, res) => {
+    res.json({ data: await findInvoicesWithoutReceipt() });
+  })
+);
 
-router.get("/alerts/amount-mismatches", requireRole("ADMIN"), async (_req, res) => {
-  res.json({ data: await findAmountMismatches() });
-});
+router.get(
+  "/alerts/amount-mismatches",
+  requireRole("ADMIN"),
+  asyncHandler(async (_req, res) => {
+    res.json({ data: await findAmountMismatches() });
+  })
+);
 
-router.get("/:id", requireRole("ADMIN", "ACCOUNTANT"), async (req, res) => {
-  const invoice = await prisma.invoice.findUniqueOrThrow({
-    where: { id: req.params.id },
-    include: { provider: true, category: true, attachments: true, payments: true },
-  });
-  res.json({ data: invoice });
-});
+router.get(
+  "/:id",
+  requireRole("ADMIN", "ACCOUNTANT"),
+  asyncHandler(async (req, res) => {
+    const invoice = await prisma.invoice.findUniqueOrThrow({
+      where: { id: req.params.id },
+      include: { provider: true, category: true, attachments: true, payments: true },
+    });
+    res.json({ data: invoice });
+  })
+);
 
 const invoiceSchema = z.object({
   providerId: z.string().uuid(),
@@ -62,40 +87,55 @@ const invoiceSchema = z.object({
   notes: z.string().optional(),
 });
 
-router.post("/", requireRole("ADMIN"), auditAction("INVOICE_CREATE", "invoice"), async (req, res) => {
-  const parsed = invoiceSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: { code: "INVALID_INPUT", message: parsed.error.message } });
+router.post(
+  "/",
+  requireRole("ADMIN"),
+  auditAction("INVOICE_CREATE", "invoice"),
+  asyncHandler(async (req, res) => {
+    const parsed = invoiceSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: { code: "INVALID_INPUT", message: parsed.error.message } });
 
-  const duplicates = await findPossibleDuplicates(parsed.data);
-  const invoice = await prisma.invoice.create({
-    data: { ...parsed.data, createdById: req.auth!.userId, isDuplicateFlag: duplicates.length > 0 },
-  });
-
-  if (duplicates.length > 0) {
-    await prisma.alert.create({
-      data: {
-        type: "INVOICE_DUPLICATE",
-        severity: "WARNING",
-        message: "Este proveedor tiene una factura duplicada.",
-        entityType: "invoice",
-        invoiceId: invoice.id,
-      },
+    const duplicates = await findPossibleDuplicates(parsed.data);
+    const invoice = await prisma.invoice.create({
+      data: { ...parsed.data, createdById: req.auth!.userId, isDuplicateFlag: duplicates.length > 0 },
     });
-  }
 
-  res.status(201).json({ data: invoice, possibleDuplicates: duplicates });
-});
+    if (duplicates.length > 0) {
+      await prisma.alert.create({
+        data: {
+          type: "INVOICE_DUPLICATE",
+          severity: "WARNING",
+          message: "Este proveedor tiene una factura duplicada.",
+          entityType: "invoice",
+          invoiceId: invoice.id,
+        },
+      });
+    }
 
-router.patch("/:id", requireRole("ADMIN"), auditAction("INVOICE_UPDATE", "invoice"), async (req, res) => {
-  const parsed = invoiceSchema.partial().safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: { code: "INVALID_INPUT", message: parsed.error.message } });
-  const invoice = await prisma.invoice.update({ where: { id: req.params.id }, data: parsed.data });
-  res.json({ data: invoice });
-});
+    res.status(201).json({ data: invoice, possibleDuplicates: duplicates });
+  })
+);
 
-router.delete("/:id", requireRole(), auditAction("INVOICE_DELETE", "invoice"), async (req, res) => {
-  await prisma.invoice.delete({ where: { id: req.params.id } });
-  res.status(204).send();
-});
+router.patch(
+  "/:id",
+  requireRole("ADMIN"),
+  auditAction("INVOICE_UPDATE", "invoice"),
+  asyncHandler(async (req, res) => {
+    const parsed = invoiceSchema.partial().safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: { code: "INVALID_INPUT", message: parsed.error.message } });
+    const invoice = await prisma.invoice.update({ where: { id: req.params.id }, data: parsed.data });
+    res.json({ data: invoice });
+  })
+);
+
+router.delete(
+  "/:id",
+  requireRole(),
+  auditAction("INVOICE_DELETE", "invoice"),
+  asyncHandler(async (req, res) => {
+    await prisma.invoice.delete({ where: { id: req.params.id } });
+    res.status(204).send();
+  })
+);
 
 export default router;

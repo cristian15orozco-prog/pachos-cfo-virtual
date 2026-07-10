@@ -1,6 +1,9 @@
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePlaidLink } from "react-plaid-link";
 import { api } from "../lib/apiClient";
 import { Card, Metric, money } from "../components/ui";
+import { useAuth } from "../hooks/useAuth";
 
 interface Account {
   account_id: string;
@@ -17,7 +20,11 @@ interface Transaction {
 }
 
 export function BankPage() {
+  const { user } = useAuth();
+  const isOwner = user?.role === "OWNER";
   const queryClient = useQueryClient();
+  const [linkToken, setLinkToken] = useState<string | null>(null);
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   const accounts = useQuery({
     queryKey: ["bank-accounts"],
@@ -37,6 +44,37 @@ export function BankPage() {
     },
   });
 
+  const createLinkToken = useMutation({
+    mutationFn: () => api.post<{ data: { link_token: string } }>("/bank/link-token"),
+    onSuccess: (res) => {
+      setConnectError(null);
+      setLinkToken(res.data.link_token);
+    },
+    onError: (err: Error) => setConnectError(err.message),
+  });
+
+  const exchangeToken = useMutation({
+    mutationFn: (publicToken: string) => api.post("/bank/exchange-public-token", { publicToken }),
+    onSuccess: () => {
+      setLinkToken(null);
+      queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["bank-transactions"] });
+    },
+    onError: (err: Error) => setConnectError(err.message),
+  });
+
+  const { open, ready } = usePlaidLink({
+    token: linkToken,
+    onSuccess: (publicToken) => exchangeToken.mutate(publicToken),
+    onExit: () => setLinkToken(null),
+  });
+
+  useEffect(() => {
+    if (linkToken && ready) {
+      open();
+    }
+  }, [linkToken, ready, open]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -47,14 +85,32 @@ export function BankPage() {
             del banco y nunca puede mover dinero.
           </p>
         </div>
-        <button
-          onClick={() => sync.mutate()}
-          disabled={sync.isPending}
-          className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
-        >
-          {sync.isPending ? "Sincronizando..." : "Sincronizar ahora"}
-        </button>
+        <div className="flex gap-2 shrink-0">
+          {isOwner && (
+            <button
+              onClick={() => createLinkToken.mutate()}
+              disabled={createLinkToken.isPending || exchangeToken.isPending}
+              className="border border-pachos-green text-pachos-green text-sm rounded-md px-4 py-2 disabled:opacity-50"
+            >
+              {createLinkToken.isPending || exchangeToken.isPending ? "Conectando..." : "Conectar Banco"}
+            </button>
+          )}
+          <button
+            onClick={() => sync.mutate()}
+            disabled={sync.isPending}
+            className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+          >
+            {sync.isPending ? "Sincronizando..." : "Sincronizar ahora"}
+          </button>
+        </div>
       </div>
+
+      {connectError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-md px-4 py-3">
+          No se pudo iniciar la conexión con Plaid: {connectError}. Verifica que{" "}
+          <code>PLAID_CLIENT_ID</code> y <code>PLAID_SECRET</code> estén configurados en el backend.
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {accounts.data?.map((acc) => (
@@ -63,8 +119,9 @@ export function BankPage() {
         {!accounts.data?.length && (
           <Card>
             <p className="text-sm text-slate-500">
-              Ninguna cuenta conectada todavía. El dueño debe conectar TD Bank mediante Plaid Link desde
-              Configuración.
+              {isOwner
+                ? 'Ninguna cuenta conectada todavía. Haz clic en "Conectar Banco" para vincular TD Bank vía Plaid.'
+                : "Ninguna cuenta conectada todavía. Solo el Dueño puede conectar el banco."}
             </p>
           </Card>
         )}

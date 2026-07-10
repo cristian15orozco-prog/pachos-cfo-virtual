@@ -29,13 +29,10 @@ export function SettingsPage() {
       <h2 className="text-2xl font-bold">Configuración</h2>
 
       <Card title="Conexión bancaria (TD Bank)">
-        <p className="text-sm text-slate-500 mb-3">
+        <p className="text-sm text-slate-500">
           Solo el Dueño puede conectar o desconectar el banco. La conexión es de solo lectura vía Plaid — el
-          sistema nunca ve ni guarda tu usuario/contraseña de TD Bank.
-        </p>
-        <p className="text-xs text-slate-400">
-          La UI de conexión usa el widget oficial de Plaid Link (paquete `react-plaid-link`) inicializado con el
-          `link_token` de <code>POST /bank/link-token</code>. Se agrega en la Fase 2 del roadmap.
+          sistema nunca ve ni guarda tu usuario/contraseña de TD Bank. El botón para conectar está en la
+          pantalla <strong>Banco TD Bank</strong> del menú.
         </p>
       </Card>
 
