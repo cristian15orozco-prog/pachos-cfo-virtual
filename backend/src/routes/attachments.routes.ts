@@ -89,10 +89,14 @@ const linkSchema = z.object({
   checkId: z.string().uuid().optional(),
 });
 
-/** Vincula un comprobante pendiente a una factura o cheque ya existente. */
+/**
+ * Vincula un comprobante pendiente a una factura o cheque ya existente.
+ * Un Empleado solo puede vincular comprobantes que él mismo subió (no puede
+ * tocar los de otros usuarios, ya que tampoco puede ver la bandeja completa).
+ */
 router.post(
   "/:id/link",
-  requireRole("ADMIN"),
+  requireRole("ADMIN", "EMPLOYEE"),
   auditAction("ATTACHMENT_LINK", "attachment"),
   asyncHandler(async (req, res) => {
     const parsed = linkSchema.safeParse(req.body);
@@ -100,6 +104,13 @@ router.post(
       return res.status(400).json({
         error: { code: "INVALID_INPUT", message: "Envía invoiceId o checkId para vincular el comprobante." },
       });
+    }
+
+    if (req.auth!.role === "EMPLOYEE") {
+      const existing = await prisma.attachment.findUniqueOrThrow({ where: { id: req.params.id } });
+      if (existing.uploadedById !== req.auth!.userId) {
+        return res.status(403).json({ error: { code: "FORBIDDEN", message: "No puedes vincular comprobantes de otro usuario." } });
+      }
     }
 
     const attachment = await prisma.attachment.update({

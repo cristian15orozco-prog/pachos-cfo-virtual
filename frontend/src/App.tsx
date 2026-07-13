@@ -12,6 +12,14 @@ import { AlertsPage } from "./pages/AlertsPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ReceiptsPage } from "./pages/ReceiptsPage";
+import { RegisterInvoicePage } from "./pages/RegisterInvoicePage";
+import { useAuth } from "./hooks/useAuth";
+
+function HomeRedirect() {
+  const { user } = useAuth();
+  const defaultPath = user?.role === "EMPLOYEE" ? "/registrar-factura" : "/dashboard";
+  return <Navigate to={defaultPath} replace />;
+}
 
 export default function App() {
   return (
@@ -19,10 +27,11 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<HomeRedirect />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/facturas" element={<InvoicesPage />} />
           <Route path="/comprobantes" element={<ReceiptsPage />} />
+          <Route path="/registrar-factura" element={<RegisterInvoicePage />} />
           <Route path="/cheques" element={<ChecksPage />} />
           <Route path="/proveedores" element={<ProvidersPage />} />
           <Route path="/banco" element={<BankPage />} />

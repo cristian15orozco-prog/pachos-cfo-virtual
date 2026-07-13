@@ -90,7 +90,7 @@ const invoiceSchema = z.object({
 
 router.post(
   "/",
-  requireRole("ADMIN"),
+  requireRole("ADMIN", "EMPLOYEE"),
   auditAction("INVOICE_CREATE", "invoice"),
   asyncHandler(async (req, res) => {
     const parsed = invoiceSchema.safeParse(req.body);
@@ -113,7 +113,13 @@ router.post(
       });
     }
 
-    res.status(201).json({ data: invoice, possibleDuplicates: duplicates });
+    // Un empleado no debe ver el detalle de otra factura (proveedor/monto) al
+    // crear la suya — solo el Dueño/Administrador ven el detalle del posible duplicado.
+    const isPrivileged = req.auth!.role === "OWNER" || req.auth!.role === "ADMIN";
+    res.status(201).json({
+      data: invoice,
+      possibleDuplicates: isPrivileged ? duplicates : duplicates.map(() => true),
+    });
   })
 );
 
@@ -153,7 +159,7 @@ const paymentSchema = z.object({
 
 router.post(
   "/:id/payments",
-  requireRole("ADMIN"),
+  requireRole("ADMIN", "EMPLOYEE"),
   auditAction("INVOICE_PAYMENT_RECORD", "invoice"),
   asyncHandler(async (req, res) => {
     const parsed = paymentSchema.safeParse(req.body);

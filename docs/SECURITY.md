@@ -47,22 +47,29 @@ Este alcance se refleja literalmente en la inicialización del cliente de Plaid 
 |---|---|---|---|---|
 | Ver saldo bancario TD Bank | ✅ | según config del dueño | ✅ | ❌ |
 | Conectar/desconectar banco (Plaid) | ✅ | ❌ | ❌ | ❌ |
-| Crear/editar facturas | ✅ | ✅ | ❌ (solo lectura) | ❌ |
+| Registrar depósitos manuales de banco/caja | ✅ | ✅ | ❌ | ❌ |
+| Ver listado/historial de facturas | ✅ | ✅ | ❌ (solo lectura) | ❌ |
+| Crear una factura nueva | ✅ | ✅ | ❌ | ✅ (sin ver el historial de las demás) |
+| Registrar cómo se pagó una factura (efectivo/cheque) | ✅ | ✅ | ❌ | ✅ (solo la que acaba de crear; no ve el saldo de caja resultante) |
 | Subir comprobantes/adjuntos | ✅ | ✅ | ❌ | ✅ |
-| Crear/editar cheques (registro) | ✅ | ✅ | ❌ (solo lectura) | ❌ |
+| Vincular un comprobante a una factura | ✅ | ✅ | ❌ | ✅ (solo los que subió él mismo) |
+| Crear/editar cheques (registro directo) | ✅ | ✅ | ❌ (solo lectura) | ❌ |
 | Ver conciliación bancaria | ✅ | ✅ | ✅ | ❌ |
 | Ver flujo de caja / proyecciones | ✅ | ✅ | ✅ | ❌ |
 | Ver reportes | ✅ | ✅ | ✅ | ❌ |
 | Gestionar usuarios y roles | ✅ | ❌ | ❌ | ❌ |
 | Ver auditoría | ✅ | ❌ | ❌ | ❌ |
 
-La bandera `employee_can_view_balances` (config del dueño) permite ampliar excepcionalmente qué ve un Empleado, pero por defecto un Empleado **nunca** ve saldos bancarios ni montos de cheques/facturas, solo puede subir documentos y ver el estado ("pendiente"/"completo") de lo que subió.
+La bandera `employee_can_view_balances` (config del dueño) permite ampliar excepcionalmente qué ve un Empleado. Por defecto, un Empleado (ej. una cajera usando la pantalla "Registrar Factura") puede **crear** una factura y marcar cómo se pagó, pero:
+- Nunca ve el listado/historial completo de facturas (`GET /invoices` sigue restringido a Administrador/Contador/Dueño) — solo recibe de vuelta la factura que él mismo acaba de crear.
+- Nunca ve el saldo de efectivo en caja ni el saldo bancario — puede *registrar* un pago en efectivo, pero el endpoint no le devuelve el saldo resultante.
+- Si su factura resulta ser un posible duplicado de otra ya existente, no ve los datos de esa otra factura (proveedor/monto) — solo un aviso genérico; el detalle completo del duplicado solo lo ve Dueño/Administrador.
 
 ## 5. Cifrado y manejo de secretos
 
 - `PLAID_CLIENT_ID`, `PLAID_SECRET`, `TOKEN_ENCRYPTION_KEY`, `JWT_SECRET` viven solo en variables de entorno / secret manager. Nunca en el repositorio.
 - `access_token` de Plaid: AES-256-GCM, IV único por registro, guardado como `iv:ciphertext:authTag`.
-- Adjuntos (facturas) en almacenamiento de objetos con URLs firmadas de corta duración, no público.
+- Adjuntos (fotos de facturas) se guardan como binario directo en Postgres (`attachments.file_data`), no en un servicio de almacenamiento externo — apropiado para el volumen de un solo supermercado. Se sirven vía `GET /attachments/:id/file`, que requiere sesión autenticada igual que el resto de la API.
 - TLS obligatorio en tránsito (HTTPS) en todos los entornos, incluido desarrollo con certificado local si se prueba Plaid Link.
 
 ## 6. Auditoría

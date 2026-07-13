@@ -25,6 +25,23 @@ router.get(
   })
 );
 
+/**
+ * Versión ligera para roles sin acceso a datos financieros (ej. Empleado
+ * llenando el formulario de "Registrar Factura"). Solo nombre — nada de
+ * balances ni historial.
+ */
+router.get(
+  "/names",
+  asyncHandler(async (_req, res) => {
+    const providers = await prisma.provider.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    });
+    res.json({ data: providers });
+  })
+);
+
 router.get(
   "/:id",
   requireRole("ADMIN", "ACCOUNTANT"),
