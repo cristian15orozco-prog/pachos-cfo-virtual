@@ -15,6 +15,7 @@ import auditLogsRoutes from "./auditLogs.routes";
 import dashboardRoutes from "./dashboard.routes";
 import categoriesRoutes from "./categories.routes";
 import cashRegisterRoutes from "./cashRegister.routes";
+import attachmentsRoutes from "./attachments.routes";
 
 const router = Router();
 
@@ -36,5 +37,6 @@ router.use("/audit-logs", auditLogsRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/categories", categoriesRoutes);
 router.use("/cash-register", cashRegisterRoutes);
+router.use("/attachments", attachmentsRoutes);
 
 export default router;

@@ -2,12 +2,19 @@ import { prisma } from "../../lib/prisma";
 import { getAccountsBalance } from "../../integrations/plaid/plaidClient";
 import { decryptToken } from "../../lib/tokenCrypto";
 import { getCashOnHand } from "./cashRegisterService";
+import { getManualBankBalance } from "./bankRegisterService";
 
 const PROJECTION_WINDOWS = [7, 15, 30] as const;
 
+/**
+ * Si hay una conexión de Plaid activa, esa es la fuente de verdad (dato real
+ * del banco). Si no, se usa el saldo manual que el dueño va registrando a
+ * mano — en cuanto conecte Plaid, este método deja de leer el ledger manual
+ * automáticamente, sin que se pierda su historial.
+ */
 async function getBankAvailableBalance(): Promise<number> {
   const connection = await prisma.bankConnection.findFirst({ where: { status: "ACTIVE" } });
-  if (!connection) return 0;
+  if (!connection) return getManualBankBalance();
 
   const accessToken = decryptToken(connection.accessTokenEncrypted);
   const accounts = await getAccountsBalance(accessToken); // solo lectura

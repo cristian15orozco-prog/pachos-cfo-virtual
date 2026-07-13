@@ -13,6 +13,7 @@ import {
 } from "../integrations/plaid/plaidClient";
 import { encryptToken, decryptToken } from "../lib/tokenCrypto";
 import { reconcileTransaction } from "../modules/reconciliation/reconciliationService";
+import { getManualBankBalance, recordBankMovement } from "../modules/cashflow/bankRegisterService";
 
 /**
  * Rutas del banco (TD Bank vía Plaid) — SOLO LECTURA.
@@ -65,12 +66,67 @@ router.get(
   requireRole("ADMIN", "ACCOUNTANT"),
   asyncHandler(async (req, res) => {
     const connection = await prisma.bankConnection.findFirst({ where: { status: "ACTIVE" } });
-    if (!connection) return res.json({ data: [] });
+    if (!connection) {
+      const manualBalance = await getManualBankBalance();
+      return res.json({
+        data: [
+          {
+            account_id: "manual",
+            name: "TD Bank (saldo manual)",
+            balances: { available: manualBalance, current: manualBalance },
+          },
+        ],
+        isManual: true,
+      });
+    }
 
     const accessToken = decryptToken(connection.accessTokenEncrypted);
     const accounts = await getAccountsBalance(accessToken);
     await recordAudit({ req, action: "VIEW_BALANCE", entityType: "bank_connection", entityId: connection.id });
-    res.json({ data: accounts });
+    res.json({ data: accounts, isManual: false });
+  })
+);
+
+/** Saldo manual de banco — solo relevante mientras no haya Plaid conectado. */
+router.get(
+  "/manual-balance",
+  requireRole("ADMIN", "ACCOUNTANT"),
+  asyncHandler(async (_req, res) => {
+    const balance = await getManualBankBalance();
+    res.json({ data: { balance } });
+  })
+);
+
+router.get(
+  "/manual-balance/movements",
+  requireRole("ADMIN", "ACCOUNTANT"),
+  asyncHandler(async (_req, res) => {
+    const movements = await prisma.bankMovement.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
+    res.json({ data: movements });
+  })
+);
+
+const manualAdjustSchema = z.object({
+  type: z.enum(["DEPOSIT", "WITHDRAWAL"]),
+  amount: z.number().positive(),
+  notes: z.string().optional(),
+});
+
+router.post(
+  "/manual-balance/adjust",
+  requireRole("ADMIN"),
+  auditAction("BANK_MANUAL_BALANCE_ADJUST", "bank_movement"),
+  asyncHandler(async (req, res) => {
+    const parsed = manualAdjustSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: { code: "INVALID_INPUT", message: parsed.error.message } });
+
+    const movement = await recordBankMovement({
+      type: parsed.data.type,
+      amount: parsed.data.amount,
+      notes: parsed.data.notes,
+      createdById: req.auth!.userId,
+    });
+    res.status(201).json({ data: movement });
   })
 );
 

@@ -11,6 +11,7 @@ import { CashFlowPage } from "./pages/CashFlowPage";
 import { AlertsPage } from "./pages/AlertsPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { ReceiptsPage } from "./pages/ReceiptsPage";
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/facturas" element={<InvoicesPage />} />
+          <Route path="/comprobantes" element={<ReceiptsPage />} />
           <Route path="/cheques" element={<ChecksPage />} />
           <Route path="/proveedores" element={<ProvidersPage />} />
           <Route path="/banco" element={<BankPage />} />
