@@ -2,7 +2,7 @@ import { useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/apiClient";
 import { Card, Badge, money } from "../components/ui";
-import { FormField, inputClass } from "../components/Modal";
+import { Modal, FormField, inputClass } from "../components/Modal";
 
 interface User {
   id: string;
@@ -26,6 +26,22 @@ const MOVEMENT_LABEL: Record<CashMovement["type"], string> = {
   DEPOSIT: "Depósito",
   WITHDRAWAL: "Retiro",
   PAYMENT: "Pago de factura",
+};
+
+const ROLE_OPTIONS = ["OWNER", "ADMIN", "ACCOUNTANT", "EMPLOYEE"] as const;
+
+const emptyNewUserForm = {
+  fullName: "",
+  email: "",
+  password: "",
+  roleName: "EMPLOYEE" as (typeof ROLE_OPTIONS)[number],
+};
+
+const emptyEditForm = {
+  fullName: "",
+  roleName: "EMPLOYEE" as (typeof ROLE_OPTIONS)[number],
+  isActive: true,
+  newPassword: "",
 };
 
 export function SettingsPage() {
@@ -78,6 +94,72 @@ export function SettingsPage() {
   function handleAdjustSubmit(e: FormEvent) {
     e.preventDefault();
     adjustCash.mutate();
+  }
+
+  // --- Crear usuario ---
+  const [showNewUserForm, setShowNewUserForm] = useState(false);
+  const [newUserForm, setNewUserForm] = useState(emptyNewUserForm);
+  const [newUserError, setNewUserError] = useState<string | null>(null);
+
+  const createUser = useMutation({
+    mutationFn: () => api.post("/users", newUserForm),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      setShowNewUserForm(false);
+      setNewUserForm(emptyNewUserForm);
+      setNewUserError(null);
+    },
+    onError: (err: Error) => setNewUserError(err.message),
+  });
+
+  function handleNewUserSubmit(e: FormEvent) {
+    e.preventDefault();
+    createUser.mutate();
+  }
+
+  // --- Editar usuario ---
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editForm, setEditForm] = useState(emptyEditForm);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const updateUser = useMutation({
+    mutationFn: async () => {
+      if (!editingUser) return;
+      await api.patch(`/users/${editingUser.id}`, {
+        fullName: editForm.fullName,
+        roleName: editForm.roleName,
+        isActive: editForm.isActive,
+      });
+      if (editForm.newPassword) {
+        await api.patch(`/users/${editingUser.id}/password`, { newPassword: editForm.newPassword });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      setEditingUser(null);
+      setEditError(null);
+    },
+    onError: (err: Error) => setEditError(err.message),
+  });
+
+  function openEditModal(user: User) {
+    setEditingUser(user);
+    setEditForm({
+      fullName: user.fullName,
+      roleName: user.role.name as (typeof ROLE_OPTIONS)[number],
+      isActive: user.isActive,
+      newPassword: "",
+    });
+    setEditError(null);
+  }
+
+  function handleEditSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (editForm.newPassword && editForm.newPassword.length < 8) {
+      setEditError("La nueva contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+    updateUser.mutate();
   }
 
   return (
@@ -178,6 +260,14 @@ export function SettingsPage() {
       </Card>
 
       <Card title="Usuarios y roles">
+        <div className="flex justify-end mb-3">
+          <button
+            onClick={() => setShowNewUserForm(true)}
+            className="bg-pachos-green text-white text-sm rounded-md px-4 py-2"
+          >
+            + Nuevo Usuario
+          </button>
+        </div>
         {isLoading && <p className="text-slate-400 text-sm">Cargando...</p>}
         <table className="w-full text-sm">
           <thead>
@@ -187,6 +277,7 @@ export function SettingsPage() {
               <th>Rol</th>
               <th>Activo</th>
               <th>Ve saldos bancarios</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -209,11 +300,148 @@ export function SettingsPage() {
                     "—"
                   )}
                 </td>
+                <td className="text-right">
+                  <button onClick={() => openEditModal(u)} className="text-xs text-pachos-green underline">
+                    Editar
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </Card>
+
+      {showNewUserForm && (
+        <Modal title="Nuevo Usuario" onClose={() => setShowNewUserForm(false)}>
+          <form onSubmit={handleNewUserSubmit}>
+            <FormField label="Nombre completo">
+              <input
+                required
+                className={inputClass}
+                value={newUserForm.fullName}
+                onChange={(e) => setNewUserForm({ ...newUserForm, fullName: e.target.value })}
+              />
+            </FormField>
+            <FormField label="Email">
+              <input
+                required
+                type="email"
+                className={inputClass}
+                value={newUserForm.email}
+                onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+              />
+            </FormField>
+            <FormField label="Contraseña temporal">
+              <input
+                required
+                type="password"
+                minLength={8}
+                className={inputClass}
+                value={newUserForm.password}
+                onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+              />
+            </FormField>
+            <FormField label="Rol">
+              <select
+                className={inputClass}
+                value={newUserForm.roleName}
+                onChange={(e) => setNewUserForm({ ...newUserForm, roleName: e.target.value as (typeof ROLE_OPTIONS)[number] })}
+              >
+                {ROLE_OPTIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            {newUserError && <p className="text-sm text-red-600 mb-3">{newUserError}</p>}
+
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setShowNewUserForm(false)}
+                className="text-sm px-4 py-2 rounded-md border border-slate-300"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={createUser.isPending}
+                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+              >
+                {createUser.isPending ? "Guardando..." : "Crear usuario"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {editingUser && (
+        <Modal title={`Editar — ${editingUser.fullName}`} onClose={() => setEditingUser(null)}>
+          <form onSubmit={handleEditSubmit}>
+            <p className="text-xs text-slate-400 mb-3">{editingUser.email} (el email no se puede cambiar)</p>
+            <FormField label="Nombre completo">
+              <input
+                required
+                className={inputClass}
+                value={editForm.fullName}
+                onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+              />
+            </FormField>
+            <FormField label="Rol">
+              <select
+                className={inputClass}
+                value={editForm.roleName}
+                onChange={(e) => setEditForm({ ...editForm, roleName: e.target.value as (typeof ROLE_OPTIONS)[number] })}
+              >
+                {ROLE_OPTIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3">
+              <input
+                type="checkbox"
+                checked={editForm.isActive}
+                onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
+              />
+              Usuario activo
+            </label>
+            <FormField label="Nueva contraseña (opcional)">
+              <input
+                type="password"
+                minLength={8}
+                placeholder="Dejar en blanco para no cambiarla"
+                className={inputClass}
+                value={editForm.newPassword}
+                onChange={(e) => setEditForm({ ...editForm, newPassword: e.target.value })}
+              />
+            </FormField>
+
+            {editError && <p className="text-sm text-red-600 mb-3">{editError}</p>}
+
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setEditingUser(null)}
+                className="text-sm px-4 py-2 rounded-md border border-slate-300"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={updateUser.isPending}
+                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+              >
+                {updateUser.isPending ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

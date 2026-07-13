@@ -80,4 +80,30 @@ router.delete(
   })
 );
 
+const passwordSchema = z.object({
+  newPassword: z.string().min(8),
+});
+
+/**
+ * Solo el Dueño puede resetear la contraseña de cualquier usuario (incluida
+ * la suya propia), sin necesidad de la contraseña anterior — control total,
+ * igual que el resto de la gestión de usuarios. Queda registrado en
+ * auditoría quién lo hizo y cuándo.
+ */
+router.patch(
+  "/:id/password",
+  requireRole(),
+  auditAction("USER_PASSWORD_RESET", "user"),
+  asyncHandler(async (req, res) => {
+    const parsed = passwordSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: { code: "INVALID_INPUT", message: parsed.error.message } });
+
+    await prisma.user.update({
+      where: { id: req.params.id },
+      data: { passwordHash: await hashPassword(parsed.data.newPassword) },
+    });
+    res.status(204).send();
+  })
+);
+
 export default router;
