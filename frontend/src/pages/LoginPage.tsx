@@ -9,7 +9,10 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  if (user) return <Navigate to="/dashboard" replace />;
+  // "/" ya decide a dónde ir según el rol (HomeRedirect en App.tsx) — mandar
+  // directo a /dashboard aquí dejaba a un Empleado atascado cargando una
+  // página a la que no tiene permiso.
+  if (user) return <Navigate to="/" replace />;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
