@@ -52,6 +52,8 @@ function handleUpload(req: Request, res: Response, next: NextFunction) {
  * comprobante. Queda "sin asignar" (invoiceId/checkId nulos) hasta que un
  * Administrador o el Dueño la vincule a una factura real.
  */
+const paymentHintSchema = z.enum(["CASH", "CHECK", "UNPAID"]).optional();
+
 router.post(
   "/upload",
   handleUpload,
@@ -61,15 +63,23 @@ router.post(
       return res.status(400).json({ error: { code: "INVALID_INPUT", message: "Falta el archivo." } });
     }
 
+    const parsedHint = paymentHintSchema.safeParse(req.body?.paymentHint || undefined);
+    if (!parsedHint.success) {
+      return res.status(400).json({
+        error: { code: "INVALID_INPUT", message: "Forma de pago inválida." },
+      });
+    }
+
     const attachment = await prisma.attachment.create({
       data: {
         fileName: req.file.originalname,
         mimeType: req.file.mimetype,
         fileData: req.file.buffer,
         notes: typeof req.body?.notes === "string" ? req.body.notes : undefined,
+        paymentHint: parsedHint.data,
         uploadedById: req.auth!.userId,
       },
-      select: { id: true, fileName: true, mimeType: true, notes: true, createdAt: true },
+      select: { id: true, fileName: true, mimeType: true, notes: true, paymentHint: true, createdAt: true },
     });
 
     res.status(201).json({ data: attachment });
@@ -89,6 +99,7 @@ router.get(
         fileName: true,
         mimeType: true,
         notes: true,
+        paymentHint: true,
         createdAt: true,
         uploadedBy: { select: { fullName: true } },
       },

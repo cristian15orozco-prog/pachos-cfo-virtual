@@ -4,11 +4,14 @@ import { api } from "../lib/apiClient";
 import { Card, Badge } from "../components/ui";
 import { useAuth } from "../hooks/useAuth";
 
+type PaymentHint = "CASH" | "CHECK" | "UNPAID";
+
 interface PendingAttachment {
   id: string;
   fileName: string;
   mimeType: string;
   notes: string | null;
+  paymentHint: PaymentHint | null;
   createdAt: string;
   uploadedBy: { fullName: string };
 }
@@ -20,6 +23,18 @@ interface InvoiceOption {
   provider: { name: string };
 }
 
+const PAYMENT_HINT_LABEL: Record<PaymentHint, string> = {
+  CASH: "Efectivo",
+  CHECK: "Cheque",
+  UNPAID: "Firmada — pendiente de pago",
+};
+
+const PAYMENT_HINT_TONE: Record<PaymentHint, "success" | "default" | "warning"> = {
+  CASH: "success",
+  CHECK: "default",
+  UNPAID: "warning",
+};
+
 export function ReceiptsPage() {
   const { user } = useAuth();
   const canReview = user?.role === "OWNER" || user?.role === "ADMIN";
@@ -27,6 +42,7 @@ export function ReceiptsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [notes, setNotes] = useState("");
+  const [paymentHint, setPaymentHint] = useState<PaymentHint | "">("");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [linkChoice, setLinkChoice] = useState<Record<string, string>>({});
@@ -51,11 +67,13 @@ export function ReceiptsPage() {
     mutationFn: (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("paymentHint", paymentHint);
       if (notes) formData.append("notes", notes);
       return api.postFormData("/attachments/upload", formData);
     },
     onSuccess: () => {
       setNotes("");
+      setPaymentHint("");
       setUploadError(null);
       setUploadSuccess(true);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -70,7 +88,13 @@ export function ReceiptsPage() {
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) upload.mutate(file);
+    if (!file) return;
+    if (!paymentHint) {
+      setUploadError("Selecciona primero la forma de pago.");
+      e.target.value = "";
+      return;
+    }
+    upload.mutate(file);
   }
 
   const pending = useQuery({
@@ -109,6 +133,19 @@ export function ReceiptsPage() {
           un Administrador la vincule a la factura correspondiente en el sistema.
         </p>
         <div className="flex flex-wrap items-end gap-3">
+          <div className="w-56">
+            <label className="block text-sm font-medium text-slate-700 mb-1">Forma de pago</label>
+            <select
+              className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+              value={paymentHint}
+              onChange={(e) => setPaymentHint(e.target.value as PaymentHint | "")}
+            >
+              <option value="">Selecciona…</option>
+              <option value="CASH">Efectivo</option>
+              <option value="CHECK">Cheque</option>
+              <option value="UNPAID">Firmada — pendiente de pago</option>
+            </select>
+          </div>
           <div className="flex-1 min-w-[200px]">
             <label className="block text-sm font-medium text-slate-700 mb-1">Nota (opcional)</label>
             <input
@@ -153,6 +190,9 @@ export function ReceiptsPage() {
                   {att.fileName}
                 </button>
                 <Badge>{att.uploadedBy.fullName}</Badge>
+                {att.paymentHint && (
+                  <Badge tone={PAYMENT_HINT_TONE[att.paymentHint]}>{PAYMENT_HINT_LABEL[att.paymentHint]}</Badge>
+                )}
                 <span className="text-xs text-slate-400">{new Date(att.createdAt).toLocaleString()}</span>
                 {att.notes && <span className="text-sm text-slate-500">— {att.notes}</span>}
 
