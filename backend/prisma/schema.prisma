@@ -398,26 +398,44 @@ model CashFlowProjection {
 // ─────────────────────────────────────────────────────────────────────────
 // Efectivo en caja (registro tipo bitácora, no un saldo mutable suelto)
 // ─────────────────────────────────────────────────────────────────────────
+// El efectivo se divide en 4 cuentas nombradas (todas son la misma caja
+// física, solo categorizadas): Ventas del Día, Renta, Pago de Trabajadores
+// y Ahorro. Cada cuenta lleva su propio saldo corriente (balanceAfter).
+// El dinero se mueve entre ellas con TRANSFER_OUT/TRANSFER_IN — nunca es
+// dinero nuevo, por eso esos tipos se excluyen del cálculo de entradas
+// esperadas en cashFlowService (solo DEPOSIT cuenta como entrada real).
+
+enum CashAccountType {
+  DAILY_SALES // Ventas del día
+  RENT // Renta
+  PAYROLL // Pago de trabajadores
+  SAVINGS // Ahorro / fondo
+}
 
 enum CashMovementType {
   DEPOSIT // el dueño declara/ajusta efectivo entrante (ventas en efectivo, etc.)
   WITHDRAWAL // ajuste manual de salida de efectivo
   PAYMENT // pago de una factura con efectivo
+  TRANSFER_OUT // sale de esta cuenta hacia otra cuenta de efectivo
+  TRANSFER_IN // entra a esta cuenta desde otra cuenta de efectivo
 }
 
 model CashMovement {
-  id           String           @id @default(uuid())
-  type         CashMovementType
-  amount       Decimal          @db.Decimal(14, 2) // siempre positivo; el efecto (+/-) lo da `type`
-  balanceAfter Decimal          @db.Decimal(14, 2) @map("balance_after")
-  invoiceId    String?          @map("invoice_id")
-  invoice      Invoice?         @relation(fields: [invoiceId], references: [id])
-  notes        String?
-  createdById  String           @map("created_by")
-  createdBy    User             @relation(fields: [createdById], references: [id])
-  createdAt    DateTime         @default(now()) @map("created_at")
+  id                String           @id @default(uuid())
+  account           CashAccountType  @default(DAILY_SALES)
+  type              CashMovementType
+  amount            Decimal          @db.Decimal(14, 2) // siempre positivo; el efecto (+/-) lo da `type`
+  balanceAfter      Decimal          @db.Decimal(14, 2) @map("balance_after")
+  invoiceId         String?          @map("invoice_id")
+  invoice           Invoice?         @relation(fields: [invoiceId], references: [id])
+  relatedTransferId String?          @map("related_transfer_id") // liga los dos lados (out/in) de una transferencia
+  notes             String?
+  createdById       String           @map("created_by")
+  createdBy         User             @relation(fields: [createdById], references: [id])
+  createdAt         DateTime         @default(now()) @map("created_at")
 
   @@index([createdAt])
+  @@index([account, createdAt])
   @@map("cash_movements")
 }
 

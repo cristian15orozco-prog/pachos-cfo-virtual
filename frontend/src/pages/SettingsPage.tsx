@@ -13,9 +13,12 @@ interface User {
   role: { name: string };
 }
 
+type CashAccount = "DAILY_SALES" | "RENT" | "PAYROLL" | "SAVINGS";
+
 interface CashMovement {
   id: string;
-  type: "DEPOSIT" | "WITHDRAWAL" | "PAYMENT";
+  account: CashAccount;
+  type: "DEPOSIT" | "WITHDRAWAL" | "PAYMENT" | "TRANSFER_IN" | "TRANSFER_OUT";
   amount: string;
   balanceAfter: string;
   notes: string | null;
@@ -26,6 +29,17 @@ const MOVEMENT_LABEL: Record<CashMovement["type"], string> = {
   DEPOSIT: "Depósito",
   WITHDRAWAL: "Retiro",
   PAYMENT: "Pago de factura",
+  TRANSFER_IN: "Transferencia recibida",
+  TRANSFER_OUT: "Transferencia enviada",
+};
+
+const CASH_ACCOUNTS: CashAccount[] = ["DAILY_SALES", "RENT", "PAYROLL", "SAVINGS"];
+
+const ACCOUNT_LABEL: Record<CashAccount, string> = {
+  DAILY_SALES: "Ventas del Día",
+  RENT: "Renta",
+  PAYROLL: "Pago de Trabajadores",
+  SAVINGS: "Ahorro",
 };
 
 const ROLE_OPTIONS = ["OWNER", "ADMIN", "ACCOUNTANT", "EMPLOYEE"] as const;
@@ -57,9 +71,10 @@ export function SettingsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
   });
 
-  const { data: cashBalance } = useQuery({
+  const { data: cashData } = useQuery({
     queryKey: ["cash-register"],
-    queryFn: () => api.get<{ data: { balance: number } }>("/cash-register").then((r) => r.data.balance),
+    queryFn: () =>
+      api.get<{ data: { balance: number; accounts: Record<CashAccount, number> } }>("/cash-register").then((r) => r.data),
   });
 
   const { data: movements } = useQuery({
@@ -67,6 +82,15 @@ export function SettingsPage() {
     queryFn: () => api.get<{ data: CashMovement[] }>("/cash-register/movements").then((r) => r.data),
   });
 
+  const invalidateCash = () => {
+    queryClient.invalidateQueries({ queryKey: ["cash-register"] });
+    queryClient.invalidateQueries({ queryKey: ["cash-register-movements"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["cashflow-summary"] });
+    queryClient.invalidateQueries({ queryKey: ["cashflow-timeline"] });
+  };
+
+  const [adjustAccount, setAdjustAccount] = useState<CashAccount>("DAILY_SALES");
   const [adjustType, setAdjustType] = useState<"DEPOSIT" | "WITHDRAWAL">("DEPOSIT");
   const [adjustAmount, setAdjustAmount] = useState("");
   const [adjustNotes, setAdjustNotes] = useState("");
@@ -75,15 +99,13 @@ export function SettingsPage() {
   const adjustCash = useMutation({
     mutationFn: () =>
       api.post("/cash-register/adjust", {
+        account: adjustAccount,
         type: adjustType,
         amount: Number(adjustAmount) || 0,
         notes: adjustNotes || undefined,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cash-register"] });
-      queryClient.invalidateQueries({ queryKey: ["cash-register-movements"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["cashflow-summary"] });
+      invalidateCash();
       setAdjustAmount("");
       setAdjustNotes("");
       setAdjustError(null);
@@ -94,6 +116,38 @@ export function SettingsPage() {
   function handleAdjustSubmit(e: FormEvent) {
     e.preventDefault();
     adjustCash.mutate();
+  }
+
+  const [transferFrom, setTransferFrom] = useState<CashAccount>("DAILY_SALES");
+  const [transferTo, setTransferTo] = useState<CashAccount>("SAVINGS");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferNotes, setTransferNotes] = useState("");
+  const [transferError, setTransferError] = useState<string | null>(null);
+
+  const transferCash = useMutation({
+    mutationFn: () =>
+      api.post("/cash-register/transfer", {
+        fromAccount: transferFrom,
+        toAccount: transferTo,
+        amount: Number(transferAmount) || 0,
+        notes: transferNotes || undefined,
+      }),
+    onSuccess: () => {
+      invalidateCash();
+      setTransferAmount("");
+      setTransferNotes("");
+      setTransferError(null);
+    },
+    onError: (err: Error) => setTransferError(err.message),
+  });
+
+  function handleTransferSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (transferFrom === transferTo) {
+      setTransferError("La cuenta de origen y destino no pueden ser la misma.");
+      return;
+    }
+    transferCash.mutate();
   }
 
   // --- Crear usuario ---
@@ -167,9 +221,37 @@ export function SettingsPage() {
       <h2 className="text-2xl font-bold">Configuración</h2>
 
       <Card title="Efectivo en caja">
-        <p className="text-2xl font-bold text-pachos-green mb-3">{money(cashBalance ?? 0)}</p>
+        <p className="text-xs text-slate-400 mb-3">
+          Total: <span className="text-lg font-bold text-pachos-green">{money(cashData?.balance ?? 0)}</span> — dividido
+          en 4 cuentas de efectivo.
+        </p>
 
-        <form onSubmit={handleAdjustSubmit} className="flex flex-wrap items-end gap-3 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+          {CASH_ACCOUNTS.map((account) => (
+            <div key={account} className="rounded-md border border-slate-200 px-3 py-2">
+              <p className="text-xs uppercase tracking-wide text-slate-400">{ACCOUNT_LABEL[account]}</p>
+              <p className="text-lg font-bold text-slate-900">{money(cashData?.accounts?.[account] ?? 0)}</p>
+            </div>
+          ))}
+        </div>
+
+        <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Ajustar una cuenta</h4>
+        <form onSubmit={handleAdjustSubmit} className="flex flex-wrap items-end gap-3 mb-2">
+          <div className="w-44">
+            <FormField label="Cuenta">
+              <select
+                className={inputClass}
+                value={adjustAccount}
+                onChange={(e) => setAdjustAccount(e.target.value as CashAccount)}
+              >
+                {CASH_ACCOUNTS.map((a) => (
+                  <option key={a} value={a}>
+                    {ACCOUNT_LABEL[a]}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          </div>
           <div className="w-36">
             <FormField label="Tipo">
               <select
@@ -212,29 +294,96 @@ export function SettingsPage() {
             {adjustCash.isPending ? "Guardando..." : "Ajustar"}
           </button>
         </form>
+        {adjustError && <p className="text-sm text-red-600 mb-4">{adjustError}</p>}
 
-        {adjustError && <p className="text-sm text-red-600 mb-3">{adjustError}</p>}
+        <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Transferir entre cuentas</h4>
+        <form onSubmit={handleTransferSubmit} className="flex flex-wrap items-end gap-3 mb-2">
+          <div className="w-44">
+            <FormField label="Desde">
+              <select
+                className={inputClass}
+                value={transferFrom}
+                onChange={(e) => setTransferFrom(e.target.value as CashAccount)}
+              >
+                {CASH_ACCOUNTS.map((a) => (
+                  <option key={a} value={a}>
+                    {ACCOUNT_LABEL[a]}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          </div>
+          <div className="w-44">
+            <FormField label="Hacia">
+              <select
+                className={inputClass}
+                value={transferTo}
+                onChange={(e) => setTransferTo(e.target.value as CashAccount)}
+              >
+                {CASH_ACCOUNTS.map((a) => (
+                  <option key={a} value={a}>
+                    {ACCOUNT_LABEL[a]}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          </div>
+          <div className="w-32">
+            <FormField label="Monto">
+              <input
+                required
+                type="number"
+                step="0.01"
+                min="0"
+                className={inputClass}
+                value={transferAmount}
+                onChange={(e) => setTransferAmount(e.target.value)}
+              />
+            </FormField>
+          </div>
+          <div className="flex-1 min-w-[160px]">
+            <FormField label="Notas (opcional)">
+              <input
+                className={inputClass}
+                value={transferNotes}
+                onChange={(e) => setTransferNotes(e.target.value)}
+              />
+            </FormField>
+          </div>
+          <button
+            type="submit"
+            disabled={transferCash.isPending}
+            className="bg-slate-700 text-white text-sm rounded-md px-4 py-2 disabled:opacity-50 h-[38px]"
+          >
+            {transferCash.isPending ? "Transfiriendo..." : "Transferir"}
+          </button>
+        </form>
+        {transferError && <p className="text-sm text-red-600 mb-3">{transferError}</p>}
 
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-slate-400 border-b border-slate-100">
               <th className="py-2">Fecha</th>
+              <th>Cuenta</th>
               <th>Tipo</th>
               <th>Notas</th>
               <th className="text-right">Monto</th>
-              <th className="text-right">Saldo</th>
+              <th className="text-right">Saldo cuenta</th>
             </tr>
           </thead>
           <tbody>
-            {movements?.slice(0, 10).map((m) => (
+            {movements?.slice(0, 15).map((m) => (
               <tr key={m.id} className="border-b border-slate-50">
                 <td className="py-2">{new Date(m.createdAt).toLocaleDateString()}</td>
+                <td className="text-slate-500">{ACCOUNT_LABEL[m.account]}</td>
                 <td>
-                  <Badge tone={m.type === "DEPOSIT" ? "success" : "warning"}>{MOVEMENT_LABEL[m.type]}</Badge>
+                  <Badge tone={m.type === "DEPOSIT" || m.type === "TRANSFER_IN" ? "success" : "warning"}>
+                    {MOVEMENT_LABEL[m.type]}
+                  </Badge>
                 </td>
                 <td className="text-slate-500">{m.notes ?? "—"}</td>
                 <td className="text-right">
-                  {m.type === "DEPOSIT" ? "+" : "-"}
+                  {m.type === "DEPOSIT" || m.type === "TRANSFER_IN" ? "+" : "-"}
                   {money(m.amount)}
                 </td>
                 <td className="text-right font-medium">{money(m.balanceAfter)}</td>
@@ -242,7 +391,7 @@ export function SettingsPage() {
             ))}
             {!movements?.length && (
               <tr>
-                <td colSpan={5} className="py-3 text-slate-400">
+                <td colSpan={6} className="py-3 text-slate-400">
                   Sin movimientos de efectivo todavía.
                 </td>
               </tr>

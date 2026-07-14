@@ -28,15 +28,25 @@ interface TimelineEntry {
   type: string;
   amount: number;
   balanceAfter: number | null;
+  account?: "DAILY_SALES" | "RENT" | "PAYROLL" | "SAVINGS";
 }
 
 const TYPE_LABEL: Record<string, string> = {
   DEPOSIT: "Depósito",
   WITHDRAWAL: "Retiro",
   PAYMENT: "Pago de factura",
+  TRANSFER_IN: "Transferencia recibida",
+  TRANSFER_OUT: "Transferencia enviada",
   CHECK: "Cheque cobrado",
   FEE: "Cargo bancario",
   OTHER: "Otro",
+};
+
+const ACCOUNT_LABEL: Record<string, string> = {
+  DAILY_SALES: "Ventas del Día",
+  RENT: "Renta",
+  PAYROLL: "Pago de Trabajadores",
+  SAVINGS: "Ahorro",
 };
 
 export function CashFlowPage() {
@@ -65,6 +75,7 @@ export function CashFlowPage() {
   const registerSale = useMutation({
     mutationFn: () =>
       api.post("/cash-register/adjust", {
+        account: "DAILY_SALES",
         type: "DEPOSIT",
         amount: Number(saleAmount) || 0,
         notes: saleNotes || "Venta en efectivo del día",
@@ -154,7 +165,7 @@ export function CashFlowPage() {
               <th>Origen</th>
               <th>Descripción</th>
               <th className="text-right">Monto</th>
-              <th className="text-right">Saldo de caja</th>
+              <th className="text-right">Saldo de cuenta</th>
             </tr>
           </thead>
           <tbody>
@@ -163,7 +174,7 @@ export function CashFlowPage() {
                 <td className="py-2">{new Date(t.date).toLocaleDateString()}</td>
                 <td>
                   <Badge tone={t.source === "CASH" ? "success" : "default"}>
-                    {t.source === "CASH" ? "Efectivo" : "Banco"}
+                    {t.source === "CASH" ? `Efectivo${t.account ? ` · ${ACCOUNT_LABEL[t.account]}` : ""}` : "Banco"}
                   </Badge>
                 </td>
                 <td>

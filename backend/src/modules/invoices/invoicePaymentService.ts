@@ -73,7 +73,10 @@ export async function recordInvoicePayment(input: RecordPaymentInput) {
   });
 
   if (input.method === "CASH") {
+    // Los pagos en efectivo siempre salen de "Ventas del Día" — es la cuenta
+    // donde entra el efectivo operativo del negocio.
     await recordCashMovement({
+      account: "DAILY_SALES",
       type: "PAYMENT",
       amount: input.amount,
       invoiceId: invoice.id,

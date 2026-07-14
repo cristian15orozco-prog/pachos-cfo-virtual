@@ -57,15 +57,22 @@ router.get(
       id: m.id,
       source: "CASH" as const,
       date: m.createdAt,
+      account: m.account,
       description:
         m.notes ??
         (m.type === "PAYMENT" && m.invoice
           ? `Pago de factura ${m.invoice.invoiceNumber} (${m.invoice.provider.name})`
           : m.type === "DEPOSIT"
             ? "Depósito de efectivo"
-            : "Retiro de efectivo"),
+            : m.type === "WITHDRAWAL"
+              ? "Retiro de efectivo"
+              : m.type === "TRANSFER_IN"
+                ? "Transferencia recibida"
+                : m.type === "TRANSFER_OUT"
+                  ? "Transferencia enviada"
+                  : "Movimiento de efectivo"),
       type: m.type,
-      amount: m.type === "DEPOSIT" ? Number(m.amount) : -Number(m.amount),
+      amount: m.type === "DEPOSIT" || m.type === "TRANSFER_IN" ? Number(m.amount) : -Number(m.amount),
       balanceAfter: Number(m.balanceAfter),
     }));
 
