@@ -42,6 +42,12 @@ export function ReconciliationPage() {
         </button>
       </div>
 
+      <p className="text-xs text-slate-400 -mt-2">
+        Esto compara automáticamente tus transacciones bancarias (vía Plaid) contra cheques y facturas — mientras no
+        haya un banco conectado, esta lista se queda vacía. Mientras tanto, marca los cheques como cobrados
+        directamente en la pantalla <strong>Cheques</strong>.
+      </p>
+
       <Card>
         {isLoading && <p className="text-slate-400 text-sm">Cargando...</p>}
         <table className="w-full text-sm">

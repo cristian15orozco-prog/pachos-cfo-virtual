@@ -85,13 +85,29 @@ export function ChecksPage() {
     createCheck.mutate();
   }
 
+  const [markClearedError, setMarkClearedError] = useState<string | null>(null);
+
+  const markCleared = useMutation({
+    mutationFn: (id: string) => api.post(`/checks/${id}/mark-cleared`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["checks"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["cashflow-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["bank-manual-movements"] });
+      setMarkClearedError(null);
+    },
+    onError: (err: Error) => setMarkClearedError(err.message),
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold">Cheques</h2>
           <p className="text-sm text-slate-500">
-            Registro de cheques emitidos manualmente. El sistema no imprime ni emite cheques.
+            Registro de cheques emitidos manualmente. El sistema no imprime ni emite cheques. Mientras no haya banco
+            conectado, marca aquí a mano cuándo se cobró uno — eso también descuenta el saldo manual del banco.
           </p>
         </div>
         {canCreate && (
@@ -109,6 +125,7 @@ export function ChecksPage() {
         {!isLoading && data?.length === 0 && (
           <p className="text-slate-400 text-sm">Todavía no hay cheques registrados.</p>
         )}
+        {markClearedError && <p className="text-sm text-red-600 mb-3">{markClearedError}</p>}
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-slate-400 border-b border-slate-100">
@@ -119,6 +136,7 @@ export function ChecksPage() {
               <th>Estado</th>
               <th>Conciliado</th>
               <th className="text-right">Monto</th>
+              {canCreate && <th></th>}
             </tr>
           </thead>
           <tbody>
@@ -133,6 +151,19 @@ export function ChecksPage() {
                 </td>
                 <td>{c.reconciled ? <Badge tone="success">Sí</Badge> : <Badge>No</Badge>}</td>
                 <td className="text-right">{money(c.amount)}</td>
+                {canCreate && (
+                  <td className="text-right pl-3 whitespace-nowrap">
+                    {(c.status === "ISSUED" || c.status === "PENDING") && (
+                      <button
+                        onClick={() => markCleared.mutate(c.id)}
+                        disabled={markCleared.isPending}
+                        className="text-xs text-pachos-green underline disabled:opacity-50"
+                      >
+                        Marcar como cobrado
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma";
 import { requireRole } from "../middleware/requireRole";
 import { auditAction } from "../middleware/auditLogger";
 import { asyncHandler } from "../middleware/asyncHandler";
+import { recordBankMovement } from "../modules/cashflow/bankRegisterService";
 
 const router = Router();
 
@@ -71,6 +72,15 @@ router.patch(
   })
 );
 
+/**
+ * Marca un cheque como cobrado a mano — para cuando no hay Plaid conectado
+ * y la conciliación automática no tiene con qué comparar. Si no hay una
+ * conexión bancaria activa, también descuenta el monto del saldo manual del
+ * banco, para que ese saldo siga reflejando la realidad mientras Plaid no
+ * esté disponible. No es una conciliación verificada contra el banco real
+ * (por eso `reconciled` se queda en false) — es una declaración manual del
+ * Dueño/Administrador.
+ */
 router.post(
   "/:id/mark-cleared",
   requireRole("ADMIN"),
@@ -80,6 +90,17 @@ router.post(
       where: { id: req.params.id },
       data: { status: "CLEARED", clearedAt: new Date() },
     });
+
+    const activeConnection = await prisma.bankConnection.findFirst({ where: { status: "ACTIVE" } });
+    if (!activeConnection) {
+      await recordBankMovement({
+        type: "WITHDRAWAL",
+        amount: Number(check.amount),
+        notes: `Cheque #${check.checkNumber} cobrado (${check.payee})`,
+        createdById: req.auth!.userId,
+      });
+    }
+
     res.json({ data: check });
   })
 );
