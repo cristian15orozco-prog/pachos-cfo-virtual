@@ -42,6 +42,21 @@ async function requestFormData<T>(path: string, formData: FormData): Promise<T> 
   return res.json();
 }
 
+async function requestBlob(path: string): Promise<Blob> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    credentials: "include",
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.error?.message ?? `Error ${res.status}`);
+  }
+  return res.blob();
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>
@@ -50,4 +65,5 @@ export const api = {
     request<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
   postFormData: <T>(path: string, formData: FormData) => requestFormData<T>(path, formData),
+  getBlob: (path: string) => requestBlob(path),
 };

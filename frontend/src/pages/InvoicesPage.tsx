@@ -15,6 +15,7 @@ interface Invoice {
   status: "PENDING" | "PARTIAL" | "PAID" | "OVERDUE";
   isDuplicateFlag: boolean;
   provider: { name: string };
+  attachments: { id: string; fileName: string; mimeType: string }[];
 }
 
 interface Provider {
@@ -190,6 +191,22 @@ export function InvoicesPage() {
     attachPhotos.mutate();
   }
 
+  const [viewError, setViewError] = useState<string | null>(null);
+  const isOwner = user?.role === "OWNER";
+
+  // El PDF de una factura solo lo puede ver el Dueño (el backend también lo exige).
+  async function viewInvoicePdf(attachmentId: string) {
+    setViewError(null);
+    try {
+      const blob = await api.getBlob(`/attachments/${attachmentId}/file`);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      setViewError((err as Error).message);
+    }
+  }
+
   const canPay = user?.role === "OWNER" || user?.role === "ADMIN";
 
   return (
@@ -211,6 +228,7 @@ export function InvoicesPage() {
         {!isLoading && data?.length === 0 && (
           <p className="text-slate-400 text-sm">Todavía no hay facturas registradas.</p>
         )}
+        {viewError && <p className="text-sm text-red-600 mb-3">{viewError}</p>}
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-slate-400 border-b border-slate-100">
@@ -247,6 +265,18 @@ export function InvoicesPage() {
                     <button onClick={() => openAttachModal(inv)} className="text-xs text-slate-500 underline">
                       📷 Adjuntar foto
                     </button>
+                    {isOwner &&
+                      inv.attachments
+                        .filter((a) => a.mimeType === "application/pdf")
+                        .map((a) => (
+                          <button
+                            key={a.id}
+                            onClick={() => viewInvoicePdf(a.id)}
+                            className="text-xs text-slate-500 underline"
+                          >
+                            📄 Ver PDF
+                          </button>
+                        ))}
                   </td>
                 )}
               </tr>

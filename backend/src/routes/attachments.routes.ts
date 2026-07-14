@@ -97,11 +97,21 @@ router.get(
   })
 );
 
-/** Devuelve el archivo binario (para mostrarlo/descargarlo). */
+/**
+ * Devuelve el archivo binario (para mostrarlo/descargarlo). Los comprobantes
+ * ya vinculados a una factura solo los puede ver el Dueño — el resto de
+ * roles conserva el acceso que ya tenían (ej. Administrador revisando la
+ * bandeja de comprobantes pendientes de vincular).
+ */
 router.get(
   "/:id/file",
   asyncHandler(async (req, res) => {
     const attachment = await prisma.attachment.findUniqueOrThrow({ where: { id: req.params.id } });
+    if (attachment.invoiceId && req.auth!.role !== "OWNER") {
+      return res.status(403).json({
+        error: { code: "FORBIDDEN", message: "Solo el Dueño puede ver los comprobantes de facturas." },
+      });
+    }
     res.setHeader("Content-Type", attachment.mimeType);
     res.setHeader("Content-Disposition", `inline; filename="${attachment.fileName}"`);
     res.send(attachment.fileData);

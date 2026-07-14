@@ -25,7 +25,12 @@ router.get(
         status: status ? (status as any) : undefined,
         providerId: providerId ? String(providerId) : undefined,
       },
-      include: { provider: true, category: true, attachments: true },
+      include: {
+        provider: true,
+        category: true,
+        // Sin fileData (el binario) — solo lo necesario para mostrar el ícono/enlace de "Ver PDF".
+        attachments: { select: { id: true, fileName: true, mimeType: true } },
+      },
       orderBy: { dueDate: "asc" },
     });
     res.json({ data: invoices });
@@ -71,7 +76,12 @@ router.get(
   asyncHandler(async (req, res) => {
     const invoice = await prisma.invoice.findUniqueOrThrow({
       where: { id: req.params.id },
-      include: { provider: true, category: true, attachments: true, payments: true },
+      include: {
+        provider: true,
+        category: true,
+        attachments: { select: { id: true, fileName: true, mimeType: true } },
+        payments: true,
+      },
     });
     res.json({ data: invoice });
   })
