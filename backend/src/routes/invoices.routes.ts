@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { requireRole } from "../middleware/requireRole";
 import { auditAction } from "../middleware/auditLogger";
@@ -97,9 +98,23 @@ router.post(
     if (!parsed.success) return res.status(400).json({ error: { code: "INVALID_INPUT", message: parsed.error.message } });
 
     const duplicates = await findPossibleDuplicates(parsed.data);
-    const invoice = await prisma.invoice.create({
-      data: { ...parsed.data, createdById: req.auth!.userId, isDuplicateFlag: duplicates.length > 0 },
-    });
+
+    let invoice;
+    try {
+      invoice = await prisma.invoice.create({
+        data: { ...parsed.data, createdById: req.auth!.userId, isDuplicateFlag: duplicates.length > 0 },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        return res.status(400).json({
+          error: {
+            code: "DUPLICATE_INVOICE_NUMBER",
+            message: "Ya existe una factura con ese número para este proveedor.",
+          },
+        });
+      }
+      throw err;
+    }
 
     if (duplicates.length > 0) {
       await prisma.alert.create({

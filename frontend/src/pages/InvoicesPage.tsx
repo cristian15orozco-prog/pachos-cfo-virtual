@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/apiClient";
 import { Card, Badge, money } from "../components/ui";
 import { Modal, FormField, inputClass } from "../components/Modal";
+import { InvoicePhotoPicker } from "../components/InvoicePhotoPicker";
+import { attachPhotosToInvoice } from "../lib/attachInvoicePhotos";
 import { useAuth } from "../hooks/useAuth";
 
 interface Invoice {
@@ -159,6 +161,35 @@ export function InvoicesPage() {
     recordPayment.mutate();
   }
 
+  const [attachingInvoice, setAttachingInvoice] = useState<Invoice | null>(null);
+  const [attachPages, setAttachPages] = useState<File[]>([]);
+  const [attachError, setAttachError] = useState<string | null>(null);
+
+  const attachPhotos = useMutation({
+    mutationFn: async () => {
+      if (!attachingInvoice) return;
+      await attachPhotosToInvoice(attachingInvoice.id, attachPages, attachingInvoice.invoiceNumber);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      setAttachingInvoice(null);
+      setAttachPages([]);
+      setAttachError(null);
+    },
+    onError: (err: Error) => setAttachError(err.message),
+  });
+
+  function openAttachModal(invoice: Invoice) {
+    setAttachingInvoice(invoice);
+    setAttachPages([]);
+    setAttachError(null);
+  }
+
+  function handleAttachSubmit(e: FormEvent) {
+    e.preventDefault();
+    attachPhotos.mutate();
+  }
+
   const canPay = user?.role === "OWNER" || user?.role === "ADMIN";
 
   return (
@@ -204,15 +235,18 @@ export function InvoicesPage() {
                 </td>
                 <td className="text-right">{money(inv.total)}</td>
                 {canPay && (
-                  <td className="text-right pl-3">
+                  <td className="text-right pl-3 space-x-3 whitespace-nowrap">
                     {inv.status !== "PAID" && (
                       <button
                         onClick={() => openPaymentModal(inv)}
-                        className="text-xs text-pachos-green underline whitespace-nowrap"
+                        className="text-xs text-pachos-green underline"
                       >
                         Registrar Pago
                       </button>
                     )}
+                    <button onClick={() => openAttachModal(inv)} className="text-xs text-slate-500 underline">
+                      📷 Adjuntar foto
+                    </button>
                   </td>
                 )}
               </tr>
@@ -453,6 +487,35 @@ export function InvoicesPage() {
                 className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {recordPayment.isPending ? "Guardando..." : "Registrar pago"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {attachingInvoice && (
+        <Modal title={`Adjuntar foto — ${attachingInvoice.invoiceNumber}`} onClose={() => setAttachingInvoice(null)}>
+          <form onSubmit={handleAttachSubmit}>
+            <FormField label="Fotos de la factura (una por página)">
+              <InvoicePhotoPicker pages={attachPages} onChange={setAttachPages} disabled={attachPhotos.isPending} />
+            </FormField>
+
+            {attachError && <p className="text-sm text-red-600 mb-3">{attachError}</p>}
+
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setAttachingInvoice(null)}
+                className="text-sm px-4 py-2 rounded-md border border-slate-300"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={attachPhotos.isPending || attachPages.length === 0}
+                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+              >
+                {attachPhotos.isPending ? "Subiendo..." : "Adjuntar"}
               </button>
             </div>
           </form>

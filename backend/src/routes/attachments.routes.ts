@@ -1,5 +1,5 @@
-import { Router } from "express";
-import multer from "multer";
+import { Router, Request, Response, NextFunction } from "express";
+import multer, { MulterError } from "multer";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { requireRole } from "../middleware/requireRole";
@@ -9,7 +9,8 @@ import { asyncHandler } from "../middleware/asyncHandler";
 const router = Router();
 
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "application/pdf"]);
-const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15MB, suficiente para una foto de celular
+const MAX_FILE_SIZE_MB = 20;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -24,13 +25,36 @@ const upload = multer({
 });
 
 /**
+ * Envuelve multer para convertir sus errores (archivo muy grande, tipo no
+ * permitido) en respuestas claras en español, en vez del error técnico crudo
+ * que devolvía antes (y que llegaba al usuario como si la factura no se
+ * hubiera guardado).
+ */
+function handleUpload(req: Request, res: Response, next: NextFunction) {
+  upload.single("file")(req, res, (err: unknown) => {
+    if (err instanceof MulterError && err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({
+        error: {
+          code: "FILE_TOO_LARGE",
+          message: `La foto es muy grande (máximo ${MAX_FILE_SIZE_MB}MB). Intenta con una foto de menor resolución.`,
+        },
+      });
+    }
+    if (err instanceof Error) {
+      return res.status(400).json({ error: { code: "UPLOAD_ERROR", message: err.message } });
+    }
+    next();
+  });
+}
+
+/**
  * Cualquier usuario autenticado (incluido Empleado) puede subir una foto de
  * comprobante. Queda "sin asignar" (invoiceId/checkId nulos) hasta que un
  * Administrador o el Dueño la vincule a una factura real.
  */
 router.post(
   "/upload",
-  upload.single("file"),
+  handleUpload,
   auditAction("ATTACHMENT_UPLOAD", "attachment"),
   asyncHandler(async (req, res) => {
     if (!req.file) {

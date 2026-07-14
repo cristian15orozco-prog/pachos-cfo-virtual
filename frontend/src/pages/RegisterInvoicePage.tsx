@@ -1,8 +1,10 @@
-import { useMemo, useRef, useState, FormEvent } from "react";
+import { useMemo, useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/apiClient";
 import { Card } from "../components/ui";
 import { FormField, inputClass } from "../components/Modal";
+import { InvoicePhotoPicker } from "../components/InvoicePhotoPicker";
+import { attachPhotosToInvoice } from "../lib/attachInvoicePhotos";
 
 interface ProviderName {
   id: string;
@@ -35,13 +37,12 @@ const emptyPaymentForm = {
 
 export function RegisterInvoicePage() {
   const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState(emptyForm);
   const [payment, setPayment] = useState(emptyPaymentForm);
-  const [pendingAttachmentId, setPendingAttachmentId] = useState<string | null>(null);
-  const [photoName, setPhotoName] = useState<string | null>(null);
+  const [photoPages, setPhotoPages] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const providers = useQuery({
@@ -58,25 +59,6 @@ export function RegisterInvoicePage() {
   const taxNum = Number(form.tax) || 0;
   const total = useMemo(() => subtotalNum + taxNum, [subtotalNum, taxNum]);
 
-  const uploadPhoto = useMutation({
-    mutationFn: (file: File) => {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("notes", "Foto tomada al registrar la factura");
-      return api.postFormData<{ data: { id: string; fileName: string } }>("/attachments/upload", formData);
-    },
-    onSuccess: (res) => {
-      setPendingAttachmentId(res.data.id);
-      setPhotoName(res.data.fileName);
-    },
-    onError: (err: Error) => setError(err.message),
-  });
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) uploadPhoto.mutate(file);
-  }
-
   const submitAll = useMutation({
     mutationFn: async () => {
       const createRes = await api.post<{ data: { id: string } }>("/invoices", {
@@ -92,8 +74,15 @@ export function RegisterInvoicePage() {
       });
       const invoiceId = createRes.data.id;
 
-      if (pendingAttachmentId) {
-        await api.post(`/attachments/${pendingAttachmentId}/link`, { invoiceId });
+      // La foto es documentación, no dato financiero — si falla, la factura
+      // ya guardada no se pierde; solo se avisa que la foto no subió.
+      let photoWarning: string | null = null;
+      if (photoPages.length > 0) {
+        try {
+          await attachPhotosToInvoice(invoiceId, photoPages, form.invoiceNumber);
+        } catch (err) {
+          photoWarning = `La factura se guardó, pero no se pudo subir la foto: ${(err as Error).message}`;
+        }
       }
 
       if (payment.paid) {
@@ -111,14 +100,15 @@ export function RegisterInvoicePage() {
             : {}),
         });
       }
+
+      return { photoWarning };
     },
-    onSuccess: () => {
+    onSuccess: ({ photoWarning }) => {
       setForm(emptyForm);
       setPayment(emptyPaymentForm);
-      setPendingAttachmentId(null);
-      setPhotoName(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setPhotoPages([]);
       setError(null);
+      setWarning(photoWarning);
       setSuccess(true);
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setTimeout(() => setSuccess(false), 4000);
@@ -129,6 +119,7 @@ export function RegisterInvoicePage() {
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setWarning(null);
     if (payment.paid && payment.method === "CHECK" && !payment.checkNumber) {
       setError("Falta el número de cheque.");
       return;
@@ -147,19 +138,8 @@ export function RegisterInvoicePage() {
 
       <Card>
         <form onSubmit={handleSubmit}>
-          <FormField label="Foto de la factura (opcional)">
-            <label className="inline-block bg-pachos-green text-white text-sm rounded-md px-4 py-2 cursor-pointer">
-              {uploadPhoto.isPending ? "Subiendo..." : photoName ? `📷 ${photoName}` : "📷 Tomar / Subir Foto"}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,application/pdf"
-                capture="environment"
-                className="hidden"
-                disabled={uploadPhoto.isPending}
-                onChange={handleFileChange}
-              />
-            </label>
+          <FormField label="Fotos de la factura (opcional — una por página)">
+            <InvoicePhotoPicker pages={photoPages} onChange={setPhotoPages} disabled={submitAll.isPending} />
           </FormField>
 
           <FormField label="Proveedor">
@@ -324,11 +304,12 @@ export function RegisterInvoicePage() {
           </div>
 
           {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+          {warning && <p className="text-sm text-amber-600 mt-2">{warning}</p>}
           {success && <p className="text-sm text-pachos-green mt-2">Factura registrada correctamente.</p>}
 
           <button
             type="submit"
-            disabled={submitAll.isPending || uploadPhoto.isPending}
+            disabled={submitAll.isPending}
             className="w-full mt-4 bg-pachos-green text-white text-sm rounded-md px-4 py-3 font-medium disabled:opacity-50"
           >
             {submitAll.isPending ? "Guardando..." : "Guardar Factura"}
