@@ -1,7 +1,7 @@
 import { useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/apiClient";
-import { Card, money } from "../components/ui";
+import { Card, Badge, money, formatDateOnly } from "../components/ui";
 import { Modal, FormField, inputClass } from "../components/Modal";
 import { useAuth } from "../hooks/useAuth";
 
@@ -14,6 +14,22 @@ interface Provider {
   invoiceCount: number;
   pendingBalance: number;
 }
+
+interface ProviderInvoice {
+  id: string;
+  invoiceNumber: string;
+  total: string;
+  dueDate: string;
+  status: "PENDING" | "PARTIAL" | "PAID" | "OVERDUE";
+  attachments: { id: string; fileName: string; mimeType: string }[];
+}
+
+const STATUS_TONE: Record<ProviderInvoice["status"], "default" | "warning" | "danger" | "success"> = {
+  PENDING: "default",
+  PARTIAL: "warning",
+  PAID: "success",
+  OVERDUE: "danger",
+};
 
 const emptyForm = {
   name: "",
@@ -62,6 +78,30 @@ export function ProvidersPage() {
     createProvider.mutate();
   }
 
+  const isOwner = user?.role === "OWNER";
+  const [viewingProvider, setViewingProvider] = useState<Provider | null>(null);
+  const [viewError, setViewError] = useState<string | null>(null);
+
+  const providerInvoices = useQuery({
+    queryKey: ["invoices", "by-provider", viewingProvider?.id],
+    queryFn: () =>
+      api.get<{ data: ProviderInvoice[] }>(`/invoices?providerId=${viewingProvider!.id}`).then((r) => r.data),
+    enabled: !!viewingProvider,
+  });
+
+  // El PDF de una factura solo lo puede ver el Dueño (el backend también lo exige).
+  async function viewInvoicePdf(attachmentId: string) {
+    setViewError(null);
+    try {
+      const blob = await api.getBlob(`/attachments/${attachmentId}/file`);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      setViewError((err as Error).message);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -92,8 +132,12 @@ export function ProvidersPage() {
           </thead>
           <tbody>
             {data?.map((p) => (
-              <tr key={p.id} className="border-b border-slate-50">
-                <td className="py-2 font-medium">{p.name}</td>
+              <tr
+                key={p.id}
+                onClick={() => setViewingProvider(p)}
+                className="border-b border-slate-50 cursor-pointer hover:bg-slate-50"
+              >
+                <td className="py-2 font-medium text-pachos-green underline">{p.name}</td>
                 <td>{p.category ?? "—"}</td>
                 <td>{p.phone ?? p.email ?? "—"}</td>
                 <td>{p.invoiceCount}</td>
@@ -178,6 +222,56 @@ export function ProvidersPage() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {viewingProvider && (
+        <Modal title={`Facturas — ${viewingProvider.name}`} onClose={() => setViewingProvider(null)}>
+          {viewError && <p className="text-sm text-red-600 mb-3">{viewError}</p>}
+          {providerInvoices.isLoading && <p className="text-slate-400 text-sm">Cargando...</p>}
+          {!providerInvoices.isLoading && providerInvoices.data?.length === 0 && (
+            <p className="text-slate-400 text-sm">Este proveedor todavía no tiene facturas registradas.</p>
+          )}
+          {!!providerInvoices.data?.length && (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-400 border-b border-slate-100">
+                  <th className="py-2">Factura</th>
+                  <th>Vence</th>
+                  <th>Estado</th>
+                  <th className="text-right">Total</th>
+                  {isOwner && <th></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {providerInvoices.data?.map((inv) => (
+                  <tr key={inv.id} className="border-b border-slate-50">
+                    <td className="py-2">{inv.invoiceNumber}</td>
+                    <td>{formatDateOnly(inv.dueDate)}</td>
+                    <td>
+                      <Badge tone={STATUS_TONE[inv.status]}>{inv.status}</Badge>
+                    </td>
+                    <td className="text-right">{money(inv.total)}</td>
+                    {isOwner && (
+                      <td className="text-right pl-3 whitespace-nowrap">
+                        {inv.attachments
+                          .filter((a) => a.mimeType === "application/pdf")
+                          .map((a) => (
+                            <button
+                              key={a.id}
+                              onClick={() => viewInvoicePdf(a.id)}
+                              className="text-xs text-slate-500 underline"
+                            >
+                              📄 Ver PDF
+                            </button>
+                          ))}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </Modal>
       )}
     </div>
