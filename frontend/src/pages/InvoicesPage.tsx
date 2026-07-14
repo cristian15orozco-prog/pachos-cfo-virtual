@@ -53,6 +53,7 @@ const emptyCreatePaymentForm = {
   checkNumber: "",
   payee: "",
   bankName: "TD Bank",
+  issueDate: "",
 };
 
 const emptyPaymentForm = {
@@ -125,7 +126,7 @@ export function InvoicesPage() {
                 checkNumber: createPayment.checkNumber,
                 payee: createPayment.payee || undefined,
                 bankName: createPayment.bankName,
-                issueDate: form.invoiceDate,
+                issueDate: createPayment.issueDate || form.invoiceDate,
               }
             : {}),
         });
@@ -501,6 +502,19 @@ export function InvoicesPage() {
                           />
                         </FormField>
                       </div>
+                      <FormField label="Fecha del cheque (si va posfechado, pon esa fecha)">
+                        <input
+                          type="date"
+                          className={inputClass}
+                          placeholder={form.invoiceDate}
+                          value={createPayment.issueDate}
+                          onChange={(e) => setCreatePayment({ ...createPayment, issueDate: e.target.value })}
+                        />
+                      </FormField>
+                      <p className="text-xs text-slate-500 bg-slate-50 rounded-md px-3 py-2">
+                        Si lo dejas vacío, se usa la fecha de la factura ({form.invoiceDate || "hoy"}). El flujo de
+                        caja no lo resta hasta esa fecha.
+                      </p>
                     </>
                   )}
                 </>
@@ -618,6 +632,17 @@ export function InvoicesPage() {
                     />
                   </FormField>
                 </div>
+                <FormField label="Fecha del cheque (si va posfechado, pon esa fecha)">
+                  <input
+                    type="date"
+                    className={inputClass}
+                    value={paymentForm.issueDate}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, issueDate: e.target.value })}
+                  />
+                </FormField>
+                <p className="text-xs text-slate-500 bg-slate-50 rounded-md px-3 py-2">
+                  Si lo dejas vacío, se usa la fecha de pago de arriba. El flujo de caja no lo resta hasta esa fecha.
+                </p>
               </>
             )}
 

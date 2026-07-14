@@ -33,6 +33,7 @@ const emptyPaymentForm = {
   checkNumber: "",
   payee: "",
   bankName: "TD Bank",
+  issueDate: "",
 };
 
 export function RegisterInvoicePage() {
@@ -95,7 +96,7 @@ export function RegisterInvoicePage() {
                 checkNumber: payment.checkNumber,
                 payee: payment.payee || undefined,
                 bankName: payment.bankName,
-                issueDate: form.invoiceDate,
+                issueDate: payment.issueDate || form.invoiceDate,
               }
             : {}),
         });
@@ -297,6 +298,14 @@ export function RegisterInvoicePage() {
                         />
                       </FormField>
                     </div>
+                    <FormField label="Fecha del cheque (si va posfechado, pon esa fecha)">
+                      <input
+                        type="date"
+                        className={inputClass}
+                        value={payment.issueDate}
+                        onChange={(e) => setPayment({ ...payment, issueDate: e.target.value })}
+                      />
+                    </FormField>
                   </>
                 )}
               </>
