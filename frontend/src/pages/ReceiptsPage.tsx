@@ -20,8 +20,6 @@ interface InvoiceOption {
   provider: { name: string };
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
-
 export function ReceiptsPage() {
   const { user } = useAuth();
   const canReview = user?.role === "OWNER" || user?.role === "ADMIN";
@@ -32,6 +30,22 @@ export function ReceiptsPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [linkChoice, setLinkChoice] = useState<Record<string, string>>({});
+  const [viewError, setViewError] = useState<string | null>(null);
+
+  // El navegador no manda el token de sesión en un <a href> directo a la
+  // API — por eso se descarga el archivo con fetch (que sí lo incluye) y se
+  // abre desde ahí, en vez de enlazar la URL cruda del backend.
+  async function viewAttachment(id: string) {
+    setViewError(null);
+    try {
+      const blob = await api.getBlob(`/attachments/${id}/file`);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      setViewError((err as Error).message);
+    }
+  }
 
   const upload = useMutation({
     mutationFn: (file: File) => {
@@ -123,6 +137,7 @@ export function ReceiptsPage() {
 
       {canReview && (
         <Card title="Bandeja pendiente de vincular">
+          {viewError && <p className="text-sm text-red-600 mb-3">{viewError}</p>}
           {pending.isLoading && <p className="text-slate-400 text-sm">Cargando...</p>}
           {!pending.isLoading && pending.data?.length === 0 && (
             <p className="text-slate-400 text-sm">No hay comprobantes pendientes de revisión.</p>
@@ -130,14 +145,13 @@ export function ReceiptsPage() {
           <ul className="divide-y divide-slate-100">
             {pending.data?.map((att) => (
               <li key={att.id} className="py-3 flex flex-wrap items-center gap-3">
-                <a
-                  href={`${API_BASE_URL}/attachments/${att.id}/file`}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={() => viewAttachment(att.id)}
                   className="text-sm text-pachos-green underline"
                 >
                   {att.fileName}
-                </a>
+                </button>
                 <Badge>{att.uploadedBy.fullName}</Badge>
                 <span className="text-xs text-slate-400">{new Date(att.createdAt).toLocaleString()}</span>
                 {att.notes && <span className="text-sm text-slate-500">— {att.notes}</span>}
