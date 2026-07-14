@@ -23,9 +23,22 @@ export function AlertsPage() {
     queryFn: () => api.get<{ data: Alert[] }>("/alerts?status=OPEN").then((r) => r.data),
   });
 
+  const invalidateAfterResolve = () => {
+    queryClient.invalidateQueries({ queryKey: ["alerts"] });
+    queryClient.invalidateQueries({ queryKey: ["cash-register"] });
+    queryClient.invalidateQueries({ queryKey: ["cash-register-movements"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  };
+
   const resolve = useMutation({
     mutationFn: (id: string) => api.patch(`/alerts/${id}`, { status: "RESOLVED" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alerts"] }),
+    onSuccess: invalidateAfterResolve,
+  });
+
+  const resolveShortfall = useMutation({
+    mutationFn: ({ id, takeFromSavings }: { id: string; takeFromSavings: boolean }) =>
+      api.post(`/alerts/${id}/resolve-shortfall`, { takeFromSavings }),
+    onSuccess: invalidateAfterResolve,
   });
 
   return (
@@ -36,17 +49,36 @@ export function AlertsPage() {
         {data?.length === 0 && <p className="text-sm text-slate-400">No hay alertas abiertas. Todo en orden.</p>}
         <ul className="divide-y divide-slate-100">
           {data?.map((alert) => (
-            <li key={alert.id} className="py-3 flex items-center justify-between">
+            <li key={alert.id} className="py-3 flex items-center justify-between gap-3">
               <div>
                 <Badge tone={SEVERITY_TONE[alert.severity]}>{alert.severity}</Badge>
                 <span className="ml-3 text-sm">{alert.message}</span>
               </div>
-              <button
-                onClick={() => resolve.mutate(alert.id)}
-                className="text-xs text-pachos-green underline"
-              >
-                Marcar resuelta
-              </button>
+              {alert.type === "AUTO_ALLOCATION_SHORTFALL" ? (
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    onClick={() => resolveShortfall.mutate({ id: alert.id, takeFromSavings: true })}
+                    disabled={resolveShortfall.isPending}
+                    className="text-xs text-white bg-pachos-green rounded-md px-3 py-1.5 disabled:opacity-50"
+                  >
+                    Sí, tomar de Ahorro
+                  </button>
+                  <button
+                    onClick={() => resolveShortfall.mutate({ id: alert.id, takeFromSavings: false })}
+                    disabled={resolveShortfall.isPending}
+                    className="text-xs text-slate-600 border border-slate-300 rounded-md px-3 py-1.5 disabled:opacity-50"
+                  >
+                    No, esperar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => resolve.mutate(alert.id)}
+                  className="text-xs text-pachos-green underline shrink-0"
+                >
+                  Marcar resuelta
+                </button>
+              )}
             </li>
           ))}
         </ul>

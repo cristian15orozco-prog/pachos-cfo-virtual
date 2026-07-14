@@ -11,6 +11,7 @@ import {
   recordCashMovement,
   transferBetweenAccounts,
 } from "../modules/cashflow/cashRegisterService";
+import { splitDailyRent, ensureWeeklyPayrollAllocation } from "../modules/cashflow/autoAllocationService";
 import { prisma } from "../lib/prisma";
 
 const router = Router();
@@ -18,7 +19,8 @@ const router = Router();
 router.get(
   "/",
   requireRole("ADMIN", "ACCOUNTANT"),
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    await ensureWeeklyPayrollAllocation({ createdById: req.auth!.userId });
     const [balance, accounts] = await Promise.all([getCashOnHand(), getAllAccountBalances()]);
     res.json({ data: { balance, accounts } });
   })
@@ -72,6 +74,40 @@ router.post(
       createdById: req.auth!.userId,
     });
     res.status(201).json({ data: movement });
+  })
+);
+
+const dailySaleSchema = z.object({
+  amount: z.number().positive(),
+  notes: z.string().optional(),
+});
+
+/**
+ * Registra la venta en efectivo del día en Ventas del Día y dispara el
+ * reparto automático de renta (y, de paso, revisa si toca el de planilla
+ * semanal) — ver docs/BUSINESS_RULES.md. Si no alcanza para separar la
+ * renta, no bloquea la venta: queda una alerta pendiente.
+ */
+router.post(
+  "/daily-sale",
+  requireRole("ADMIN"),
+  auditAction("CASH_DAILY_SALE", "cash_movement"),
+  asyncHandler(async (req, res) => {
+    const parsed = dailySaleSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: { code: "INVALID_INPUT", message: parsed.error.message } });
+
+    const deposit = await recordCashMovement({
+      account: "DAILY_SALES",
+      type: "DEPOSIT",
+      amount: parsed.data.amount,
+      notes: parsed.data.notes ?? "Venta en efectivo del día",
+      createdById: req.auth!.userId,
+    });
+
+    const rentSplit = await splitDailyRent({ createdById: req.auth!.userId });
+    await ensureWeeklyPayrollAllocation({ createdById: req.auth!.userId });
+
+    res.status(201).json({ data: { deposit, rentSplit } });
   })
 );
 

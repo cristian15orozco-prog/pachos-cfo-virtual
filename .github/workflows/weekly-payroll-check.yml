@@ -1,0 +1,18 @@
+name: Weekly payroll auto-allocation
+
+on:
+  schedule:
+    - cron: "0 15 * * 1" # lunes 15:00 UTC (~9am hora Centro)
+  workflow_dispatch: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call weekly payroll check endpoint
+        env:
+          INTERNAL_TASK_SECRET: ${{ secrets.INTERNAL_TASK_SECRET }}
+        run: |
+          curl -f -s -X POST "https://pachos-cfo-virtual-backend.onrender.com/api/v1/internal/weekly-payroll-check" \
+            -H "x-internal-secret: ${INTERNAL_TASK_SECRET}" \
+            -H "Content-Type: application/json"

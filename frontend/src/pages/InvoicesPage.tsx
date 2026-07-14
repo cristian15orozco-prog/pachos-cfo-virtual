@@ -47,6 +47,7 @@ const emptyPaymentForm = {
   method: "CASH" as "CASH" | "CHECK",
   amount: "",
   paidAt: "",
+  sourceAccount: "DAILY_SALES" as "DAILY_SALES" | "SAVINGS",
   checkNumber: "",
   payee: "",
   bankName: "TD Bank",
@@ -116,6 +117,7 @@ export function InvoicesPage() {
         method: paymentForm.method,
         amount: Number(paymentForm.amount) || 0,
         paidAt: paymentForm.paidAt,
+        ...(paymentForm.method === "CASH" ? { sourceAccount: paymentForm.sourceAccount } : {}),
         ...(paymentForm.method === "CHECK"
           ? {
               checkNumber: paymentForm.checkNumber,
@@ -131,7 +133,9 @@ export function InvoicesPage() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["checks"] });
       queryClient.invalidateQueries({ queryKey: ["cashflow-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["cashflow-timeline"] });
       queryClient.invalidateQueries({ queryKey: ["cash-register"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-register-movements"] });
       setPayingInvoice(null);
       setPaymentForm(emptyPaymentForm);
       setPaymentError(null);
@@ -379,9 +383,23 @@ export function InvoicesPage() {
             </div>
 
             {paymentForm.method === "CASH" && (
-              <p className="text-xs text-slate-500 bg-slate-50 rounded-md px-3 py-2">
-                Este monto se descontará directo del efectivo en caja.
-              </p>
+              <>
+                <FormField label="Pagar con">
+                  <select
+                    className={inputClass}
+                    value={paymentForm.sourceAccount}
+                    onChange={(e) =>
+                      setPaymentForm({ ...paymentForm, sourceAccount: e.target.value as "DAILY_SALES" | "SAVINGS" })
+                    }
+                  >
+                    <option value="DAILY_SALES">Ventas del Día</option>
+                    <option value="SAVINGS">Ahorro</option>
+                  </select>
+                </FormField>
+                <p className="text-xs text-slate-500 bg-slate-50 rounded-md px-3 py-2">
+                  Este monto se descontará directo de la cuenta elegida.
+                </p>
+              </>
             )}
 
             {paymentForm.method === "CHECK" && (

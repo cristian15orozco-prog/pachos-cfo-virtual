@@ -66,6 +66,11 @@ export function CashFlowPage() {
     queryKey: ["cashflow-timeline"],
     queryFn: () => api.get<{ data: TimelineEntry[] }>("/cashflow/timeline").then((r) => r.data),
   });
+  const businessSettings = useQuery({
+    queryKey: ["business-settings"],
+    queryFn: () => api.get<{ data: { dailyRentAmount: string } }>("/business-settings").then((r) => r.data),
+    enabled: canRegisterSale,
+  });
 
   const [showSaleForm, setShowSaleForm] = useState(false);
   const [saleAmount, setSaleAmount] = useState("");
@@ -74,9 +79,7 @@ export function CashFlowPage() {
 
   const registerSale = useMutation({
     mutationFn: () =>
-      api.post("/cash-register/adjust", {
-        account: "DAILY_SALES",
-        type: "DEPOSIT",
+      api.post("/cash-register/daily-sale", {
         amount: Number(saleAmount) || 0,
         notes: saleNotes || "Venta en efectivo del día",
       }),
@@ -86,6 +89,7 @@ export function CashFlowPage() {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["cash-register"] });
       queryClient.invalidateQueries({ queryKey: ["cash-register-movements"] });
+      queryClient.invalidateQueries({ queryKey: ["alerts"] });
       setShowSaleForm(false);
       setSaleAmount("");
       setSaleNotes("");
@@ -213,6 +217,12 @@ export function CashFlowPage() {
                 onChange={(e) => setSaleAmount(e.target.value)}
               />
             </FormField>
+            {businessSettings.data && (
+              <p className="text-xs text-slate-500 bg-slate-50 rounded-md px-3 py-2 mb-3">
+                De este monto se separarán automáticamente {money(Number(businessSettings.data.dailyRentAmount))} para
+                Renta.
+              </p>
+            )}
             <FormField label="Notas (opcional)">
               <input
                 className={inputClass}

@@ -1,4 +1,4 @@
-import { useState, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/apiClient";
 import { Card, Badge, money } from "../components/ui";
@@ -89,6 +89,43 @@ export function SettingsPage() {
     queryClient.invalidateQueries({ queryKey: ["cashflow-summary"] });
     queryClient.invalidateQueries({ queryKey: ["cashflow-timeline"] });
   };
+
+  const { data: businessSettings } = useQuery({
+    queryKey: ["business-settings"],
+    queryFn: () =>
+      api
+        .get<{ data: { dailyRentAmount: string; weeklyPayrollAmount: string } }>("/business-settings")
+        .then((r) => r.data),
+  });
+
+  const [dailyRentAmount, setDailyRentAmount] = useState("");
+  const [weeklyPayrollAmount, setWeeklyPayrollAmount] = useState("");
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (businessSettings) {
+      setDailyRentAmount(businessSettings.dailyRentAmount);
+      setWeeklyPayrollAmount(businessSettings.weeklyPayrollAmount);
+    }
+  }, [businessSettings]);
+
+  const saveSettings = useMutation({
+    mutationFn: () =>
+      api.patch("/business-settings", {
+        dailyRentAmount: Number(dailyRentAmount) || 0,
+        weeklyPayrollAmount: Number(weeklyPayrollAmount) || 0,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["business-settings"] });
+      setSettingsError(null);
+    },
+    onError: (err: Error) => setSettingsError(err.message),
+  });
+
+  function handleSettingsSubmit(e: FormEvent) {
+    e.preventDefault();
+    saveSettings.mutate();
+  }
 
   const [adjustAccount, setAdjustAccount] = useState<CashAccount>("DAILY_SALES");
   const [adjustType, setAdjustType] = useState<"DEPOSIT" | "WITHDRAWAL">("DEPOSIT");
@@ -219,6 +256,49 @@ export function SettingsPage() {
   return (
     <div className="space-y-4">
       <h2 className="text-2xl font-bold">Configuración</h2>
+
+      <Card title="Montos automáticos">
+        <p className="text-xs text-slate-400 mb-3">
+          Cada venta en efectivo del día separa automáticamente la renta; cada lunes se separa automáticamente el
+          pago de trabajadores. Puedes ajustar los montos aquí cuando cambien.
+        </p>
+        <form onSubmit={handleSettingsSubmit} className="flex flex-wrap items-end gap-3">
+          <div className="w-48">
+            <FormField label="Renta diaria">
+              <input
+                required
+                type="number"
+                step="0.01"
+                min="0"
+                className={inputClass}
+                value={dailyRentAmount}
+                onChange={(e) => setDailyRentAmount(e.target.value)}
+              />
+            </FormField>
+          </div>
+          <div className="w-48">
+            <FormField label="Pago de trabajadores (semanal)">
+              <input
+                required
+                type="number"
+                step="0.01"
+                min="0"
+                className={inputClass}
+                value={weeklyPayrollAmount}
+                onChange={(e) => setWeeklyPayrollAmount(e.target.value)}
+              />
+            </FormField>
+          </div>
+          <button
+            type="submit"
+            disabled={saveSettings.isPending}
+            className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50 h-[38px]"
+          >
+            {saveSettings.isPending ? "Guardando..." : "Guardar montos"}
+          </button>
+        </form>
+        {settingsError && <p className="text-sm text-red-600 mt-3">{settingsError}</p>}
+      </Card>
 
       <Card title="Efectivo en caja">
         <p className="text-xs text-slate-400 mb-3">

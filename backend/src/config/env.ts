@@ -36,6 +36,7 @@ export const env = {
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? "7d",
   },
   tokenEncryptionKey: required("TOKEN_ENCRYPTION_KEY"),
+  internalTaskSecret: required("INTERNAL_TASK_SECRET"),
   plaid: {
     clientId: process.env.PLAID_CLIENT_ID ?? "",
     secret: process.env.PLAID_SECRET ?? "",

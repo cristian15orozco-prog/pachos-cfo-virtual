@@ -7,6 +7,9 @@ export interface RecordPaymentInput {
   paidAt: Date;
   method: "CASH" | "CHECK";
   createdById: string;
+  // Solo para method = "CASH": de qué cuenta sale el efectivo (por defecto
+  // Ventas del Día; Ahorro es el atajo para pagar directo con lo ahorrado).
+  sourceAccount?: "DAILY_SALES" | "SAVINGS";
   // Solo para method = "CHECK":
   checkId?: string; // vincular un cheque ya registrado y sin factura asociada
   checkNumber?: string; // o crear uno nuevo con estos datos
@@ -73,10 +76,11 @@ export async function recordInvoicePayment(input: RecordPaymentInput) {
   });
 
   if (input.method === "CASH") {
-    // Los pagos en efectivo siempre salen de "Ventas del Día" — es la cuenta
-    // donde entra el efectivo operativo del negocio.
+    // Por defecto los pagos en efectivo salen de "Ventas del Día"; Ahorro es
+    // el atajo directo para cuando se paga con lo ahorrado, sin transferir
+    // primero a Ventas del Día.
     await recordCashMovement({
-      account: "DAILY_SALES",
+      account: input.sourceAccount ?? "DAILY_SALES",
       type: "PAYMENT",
       amount: input.amount,
       invoiceId: invoice.id,

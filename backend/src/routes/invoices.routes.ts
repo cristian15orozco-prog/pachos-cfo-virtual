@@ -149,6 +149,7 @@ const paymentSchema = z.object({
   method: z.enum(["CASH", "CHECK"]),
   amount: z.number().positive(),
   paidAt: z.coerce.date(),
+  sourceAccount: z.enum(["DAILY_SALES", "SAVINGS"]).optional(),
   checkId: z.string().uuid().optional(),
   checkNumber: z.string().optional(),
   payee: z.string().optional(),
@@ -171,8 +172,18 @@ router.post(
       });
     }
 
+    // Solo Dueño/Administrador pueden elegir pagar con Ahorro — una cajera
+    // siempre paga desde Ventas del Día, sin excepción.
+    const isPrivileged = req.auth!.role === "OWNER" || req.auth!.role === "ADMIN";
+    const sourceAccount = isPrivileged ? parsed.data.sourceAccount : undefined;
+
     try {
-      const result = await recordInvoicePayment({ invoiceId: req.params.id, createdById: req.auth!.userId, ...parsed.data });
+      const result = await recordInvoicePayment({
+        invoiceId: req.params.id,
+        createdById: req.auth!.userId,
+        ...parsed.data,
+        sourceAccount,
+      });
       res.status(201).json({ data: result });
     } catch (error) {
       res.status(400).json({ error: { code: "PAYMENT_FAILED", message: (error as Error).message } });

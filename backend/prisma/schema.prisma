@@ -341,6 +341,10 @@ model Alert {
   bankTransactionId String?       @map("bank_transaction_id")
   bankTransaction   BankTransaction? @relation(fields: [bankTransactionId], references: [id])
   status            AlertStatus   @default(OPEN)
+  // Datos estructurados para alertas accionables (ej. AUTO_ALLOCATION_SHORTFALL:
+  // { targetAccount, missingAmount }) — permite resolver la alerta con una
+  // acción concreta en vez de solo marcarla como leída.
+  metadata          Json?
   createdAt         DateTime      @default(now()) @map("created_at")
   resolvedAt        DateTime?     @map("resolved_at")
 
@@ -464,4 +468,23 @@ model BankMovement {
 
   @@index([createdAt])
   @@map("bank_movements")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Configuración del negocio (fila única) — montos del reparto automático de
+// efectivo. Editable por el Dueño; nunca fijo en código para poder ajustarlo
+// si sube la renta o cambia la planilla.
+// ─────────────────────────────────────────────────────────────────────────
+
+model BusinessSettings {
+  id                   String    @id @default(uuid())
+  dailyRentAmount      Decimal   @default(600) @db.Decimal(14, 2) @map("daily_rent_amount")
+  weeklyPayrollAmount  Decimal   @default(5500) @db.Decimal(14, 2) @map("weekly_payroll_amount")
+  // Lunes (00:00 UTC) de la última semana en que ya se separó el pago de
+  // trabajadores — evita duplicar la separación si el chequeo automático
+  // corre más de una vez la misma semana.
+  lastPayrollWeekStart DateTime? @db.Date @map("last_payroll_week_start")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@map("business_settings")
 }
