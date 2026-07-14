@@ -54,7 +54,9 @@ async function estimateExpectedOutflows(days: number): Promise<number> {
     prisma.invoice.findMany({
       where: { dueDate: { lte: horizon }, status: { in: ["PENDING", "PARTIAL", "OVERDUE"] } },
     }),
-    prisma.check.findMany({ where: { status: { in: ["ISSUED", "PENDING"] } } }),
+    // issueDate es la fecha del cheque (posfechada, si aplica) — un cheque no
+    // debe restarse de la proyección hasta que esa fecha entre en la ventana.
+    prisma.check.findMany({ where: { status: { in: ["ISSUED", "PENDING"] }, issueDate: { lte: horizon } } }),
   ]);
 
   const invoiceTotal = invoicesDue.reduce((sum, inv) => sum + Number(inv.total), 0);

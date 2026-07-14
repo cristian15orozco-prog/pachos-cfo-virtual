@@ -202,7 +202,7 @@ export function ChecksPage() {
             </FormField>
 
             <div className="grid grid-cols-2 gap-3">
-              <FormField label="Fecha de emisión">
+              <FormField label="Fecha del cheque (para cuándo lo posfechaste)">
                 <input
                   required
                   type="date"
@@ -223,6 +223,10 @@ export function ChecksPage() {
                 />
               </FormField>
             </div>
+            <p className="text-xs text-slate-500 bg-slate-50 rounded-md px-3 py-2 -mt-2 mb-3">
+              Si el cheque va posfechado, pon la fecha en que se podrá cobrar — el flujo de caja no lo restará de la
+              proyección hasta que llegue esa fecha.
+            </p>
 
             <FormField label="Factura asociada (opcional)">
               <select
