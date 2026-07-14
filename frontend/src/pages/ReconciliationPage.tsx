@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/apiClient";
-import { Card, Badge, money } from "../components/ui";
+import { Card, Badge, money, formatDateOnly } from "../components/ui";
 
 interface Reconciliation {
   id: string;
@@ -57,7 +57,7 @@ export function ReconciliationPage() {
           <tbody>
             {data?.map((r) => (
               <tr key={r.id} className="border-b border-slate-50">
-                <td className="py-2">{new Date(r.bankTransaction.transactionDate).toLocaleDateString()}</td>
+                <td className="py-2">{formatDateOnly(r.bankTransaction.transactionDate)}</td>
                 <td>
                   {r.bankTransaction.description} ({money(r.bankTransaction.amount)})
                 </td>

@@ -1,7 +1,7 @@
 import { useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/apiClient";
-import { Card, Badge, money } from "../components/ui";
+import { Card, Badge, money, formatDateOnly } from "../components/ui";
 import { Modal, FormField, inputClass } from "../components/Modal";
 import { useAuth } from "../hooks/useAuth";
 
@@ -127,7 +127,7 @@ export function ChecksPage() {
                 <td className="py-2">{c.checkNumber}</td>
                 <td>{c.payee}</td>
                 <td>{c.bankName}</td>
-                <td>{new Date(c.issueDate).toLocaleDateString()}</td>
+                <td>{formatDateOnly(c.issueDate)}</td>
                 <td>
                   <Badge tone={STATUS_TONE[c.status]}>{c.status}</Badge>
                 </td>

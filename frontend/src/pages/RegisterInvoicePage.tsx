@@ -1,7 +1,7 @@
 import { useMemo, useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/apiClient";
-import { Card } from "../components/ui";
+import { Card, todayLocalDateString } from "../components/ui";
 import { FormField, inputClass } from "../components/Modal";
 import { InvoicePhotoPicker } from "../components/InvoicePhotoPicker";
 import { attachPhotosToInvoice } from "../lib/attachInvoicePhotos";
@@ -19,8 +19,8 @@ interface Category {
 const emptyForm = {
   providerId: "",
   invoiceNumber: "",
-  invoiceDate: new Date().toISOString().slice(0, 10),
-  dueDate: new Date().toISOString().slice(0, 10),
+  invoiceDate: todayLocalDateString(),
+  dueDate: todayLocalDateString(),
   subtotal: "",
   tax: "",
   categoryId: "",

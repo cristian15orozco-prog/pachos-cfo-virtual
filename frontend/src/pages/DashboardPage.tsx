@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/apiClient";
-import { Card, Metric, money, Badge } from "../components/ui";
+import { Card, Metric, money, Badge, formatDateOnly } from "../components/ui";
 
 interface DashboardData {
   bankBalance: number;
@@ -86,7 +86,7 @@ export function DashboardPage() {
               <tr key={inv.id} className="border-b border-slate-50">
                 <td className="py-2">{inv.provider?.name}</td>
                 <td>{inv.invoiceNumber}</td>
-                <td>{new Date(inv.dueDate).toLocaleDateString()}</td>
+                <td>{formatDateOnly(inv.dueDate)}</td>
                 <td className="text-right">{money(inv.total)}</td>
               </tr>
             ))}

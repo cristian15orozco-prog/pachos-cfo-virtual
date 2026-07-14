@@ -2,7 +2,7 @@ import { useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from "recharts";
 import { api } from "../lib/apiClient";
-import { Card, Metric, Badge, money } from "../components/ui";
+import { Card, Metric, Badge, money, formatDateOnly } from "../components/ui";
 import { Modal, FormField, inputClass } from "../components/Modal";
 import { useAuth } from "../hooks/useAuth";
 
@@ -107,7 +107,7 @@ export function CashFlowPage() {
     .slice()
     .reverse()
     .map((h) => ({
-      date: new Date(h.snapshotDate).toLocaleDateString(),
+      date: formatDateOnly(h.snapshotDate),
       "7 días": Number(h.projected7d),
       "15 días": Number(h.projected15d),
       "30 días": Number(h.projected30d),
@@ -175,7 +175,7 @@ export function CashFlowPage() {
           <tbody>
             {timeline.data?.map((t) => (
               <tr key={`${t.source}-${t.id}`} className="border-b border-slate-50">
-                <td className="py-2">{new Date(t.date).toLocaleDateString()}</td>
+                <td className="py-2">{formatDateOnly(t.date)}</td>
                 <td>
                   <Badge tone={t.source === "CASH" ? "success" : "default"}>
                     {t.source === "CASH" ? `Efectivo${t.account ? ` · ${ACCOUNT_LABEL[t.account]}` : ""}` : "Banco"}

@@ -1,7 +1,7 @@
 import { useMemo, useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/apiClient";
-import { Card, Badge, money } from "../components/ui";
+import { Card, Badge, money, formatDateOnly, todayLocalDateString } from "../components/ui";
 import { Modal, FormField, inputClass } from "../components/Modal";
 import { InvoicePhotoPicker } from "../components/InvoicePhotoPicker";
 import { attachPhotosToInvoice } from "../lib/attachInvoicePhotos";
@@ -152,7 +152,7 @@ export function InvoicesPage() {
 
   function openPaymentModal(invoice: Invoice) {
     setPayingInvoice(invoice);
-    setPaymentForm({ ...emptyPaymentForm, amount: invoice.total, paidAt: new Date().toISOString().slice(0, 10) });
+    setPaymentForm({ ...emptyPaymentForm, amount: invoice.total, paidAt: todayLocalDateString() });
     setPaymentError(null);
   }
 
@@ -229,7 +229,7 @@ export function InvoicesPage() {
                 <td>
                   {inv.invoiceNumber} {inv.isDuplicateFlag && <Badge tone="danger">posible duplicado</Badge>}
                 </td>
-                <td>{new Date(inv.dueDate).toLocaleDateString()}</td>
+                <td>{formatDateOnly(inv.dueDate)}</td>
                 <td>
                   <Badge tone={STATUS_TONE[inv.status]}>{inv.status}</Badge>
                 </td>

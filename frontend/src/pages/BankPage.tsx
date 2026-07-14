@@ -2,7 +2,7 @@ import { useEffect, useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePlaidLink } from "react-plaid-link";
 import { api } from "../lib/apiClient";
-import { Card, Metric, Badge, money } from "../components/ui";
+import { Card, Metric, Badge, money, formatDateOnly } from "../components/ui";
 import { Modal, FormField, inputClass } from "../components/Modal";
 import { useAuth } from "../hooks/useAuth";
 
@@ -237,7 +237,7 @@ export function BankPage() {
           <tbody>
             {transactions.data?.map((t) => (
               <tr key={t.id} className="border-b border-slate-50">
-                <td className="py-2">{new Date(t.transactionDate).toLocaleDateString()}</td>
+                <td className="py-2">{formatDateOnly(t.transactionDate)}</td>
                 <td>{t.description}</td>
                 <td>{t.type}</td>
                 <td className="text-right">{money(t.amount)}</td>
