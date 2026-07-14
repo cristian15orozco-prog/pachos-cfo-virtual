@@ -46,6 +46,15 @@ const emptyForm = {
   notes: "",
 };
 
+const emptyCreatePaymentForm = {
+  paid: false,
+  method: "CASH" as "CASH" | "CHECK",
+  sourceAccount: "DAILY_SALES" as "DAILY_SALES" | "SAVINGS",
+  checkNumber: "",
+  payee: "",
+  bankName: "TD Bank",
+};
+
 const emptyPaymentForm = {
   method: "CASH" as "CASH" | "CHECK",
   amount: "",
@@ -63,6 +72,7 @@ export function InvoicesPage() {
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [createPayment, setCreatePayment] = useState(emptyCreatePaymentForm);
   const [error, setError] = useState<string | null>(null);
 
   const [payingInvoice, setPayingInvoice] = useState<Invoice | null>(null);
@@ -91,8 +101,8 @@ export function InvoicesPage() {
   const total = useMemo(() => subtotalNum + taxNum, [subtotalNum, taxNum]);
 
   const createInvoice = useMutation({
-    mutationFn: () =>
-      api.post("/invoices", {
+    mutationFn: async () => {
+      const createRes = await api.post<{ data: { id: string } }>("/invoices", {
         providerId: form.providerId,
         invoiceNumber: form.invoiceNumber,
         invoiceDate: form.invoiceDate,
@@ -102,12 +112,36 @@ export function InvoicesPage() {
         total,
         categoryId: form.categoryId || undefined,
         notes: form.notes || undefined,
-      }),
+      });
+
+      if (createPayment.paid) {
+        await api.post(`/invoices/${createRes.data.id}/payments`, {
+          method: createPayment.method,
+          amount: total,
+          paidAt: form.invoiceDate,
+          ...(createPayment.method === "CASH" ? { sourceAccount: createPayment.sourceAccount } : {}),
+          ...(createPayment.method === "CHECK"
+            ? {
+                checkNumber: createPayment.checkNumber,
+                payee: createPayment.payee || undefined,
+                bankName: createPayment.bankName,
+                issueDate: form.invoiceDate,
+              }
+            : {}),
+        });
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["cashflow-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["cashflow-timeline"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-register"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-register-movements"] });
+      queryClient.invalidateQueries({ queryKey: ["checks"] });
       setShowForm(false);
       setForm(emptyForm);
+      setCreatePayment(emptyCreatePaymentForm);
       setError(null);
     },
     onError: (err: Error) => setError(err.message),
@@ -148,6 +182,11 @@ export function InvoicesPage() {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    setError(null);
+    if (createPayment.paid && createPayment.method === "CHECK" && !createPayment.checkNumber) {
+      setError("Falta el número de cheque.");
+      return;
+    }
     createInvoice.mutate();
   }
 
@@ -386,6 +425,87 @@ export function InvoicesPage() {
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
               />
             </FormField>
+
+            <div className="border-t border-slate-100 mt-4 pt-4">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3">
+                <input
+                  type="checkbox"
+                  checked={createPayment.paid}
+                  onChange={(e) => setCreatePayment({ ...createPayment, paid: e.target.checked })}
+                />
+                ¿Ya se pagó?
+              </label>
+
+              {createPayment.paid && (
+                <>
+                  <FormField label="Método de pago">
+                    <select
+                      className={inputClass}
+                      value={createPayment.method}
+                      onChange={(e) =>
+                        setCreatePayment({ ...createPayment, method: e.target.value as "CASH" | "CHECK" })
+                      }
+                    >
+                      <option value="CASH">Efectivo</option>
+                      <option value="CHECK">Cheque</option>
+                    </select>
+                  </FormField>
+
+                  {createPayment.method === "CASH" && (
+                    <>
+                      <FormField label="Pagar con">
+                        <select
+                          className={inputClass}
+                          value={createPayment.sourceAccount}
+                          onChange={(e) =>
+                            setCreatePayment({
+                              ...createPayment,
+                              sourceAccount: e.target.value as "DAILY_SALES" | "SAVINGS",
+                            })
+                          }
+                        >
+                          <option value="DAILY_SALES">Ventas del Día</option>
+                          <option value="SAVINGS">Ahorro</option>
+                        </select>
+                      </FormField>
+                      <p className="text-xs text-slate-500 bg-slate-50 rounded-md px-3 py-2">
+                        Se descontará ${total.toFixed(2)} de la cuenta elegida.
+                      </p>
+                    </>
+                  )}
+
+                  {createPayment.method === "CHECK" && (
+                    <>
+                      <FormField label="Número de cheque">
+                        <input
+                          required
+                          className={inputClass}
+                          value={createPayment.checkNumber}
+                          onChange={(e) => setCreatePayment({ ...createPayment, checkNumber: e.target.value })}
+                        />
+                      </FormField>
+                      <div className="grid grid-cols-2 gap-3">
+                        <FormField label="Beneficiario">
+                          <input
+                            className={inputClass}
+                            placeholder="Nombre del proveedor"
+                            value={createPayment.payee}
+                            onChange={(e) => setCreatePayment({ ...createPayment, payee: e.target.value })}
+                          />
+                        </FormField>
+                        <FormField label="Banco">
+                          <input
+                            className={inputClass}
+                            value={createPayment.bankName}
+                            onChange={(e) => setCreatePayment({ ...createPayment, bankName: e.target.value })}
+                          />
+                        </FormField>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
 
             {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
 
