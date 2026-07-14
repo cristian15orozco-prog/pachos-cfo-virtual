@@ -1,59 +1,111 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
 
 let accessToken: string | null = null;
+let onAuthFailure: (() => void) | null = null;
+let refreshInFlight: Promise<string> | null = null;
 
 export function setAccessToken(token: string | null) {
   accessToken = token;
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      ...options.headers,
-    },
-  });
+/** Se llama cuando el token expiró y renovarlo también falló — la app debe volver al login. */
+export function setOnAuthFailure(cb: () => void) {
+  onAuthFailure = cb;
+}
 
+function authHeaders(): Record<string, string> {
+  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+}
+
+/**
+ * El token de acceso dura solo 15 minutos. Sin esto, cualquier acción hecha
+ * después de ese tiempo fallaba en silencio (parecía que "la app se
+ * colgaba") hasta recargar la página entera. Ahora, si una petición llega
+ * con el token vencido, se renueva sola (usando la cookie de sesión de 7
+ * días) y se reintenta una vez — transparente para quien está usando la app.
+ */
+async function refreshAccessToken(): Promise<string> {
+  if (!refreshInFlight) {
+    refreshInFlight = fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("No se pudo renovar la sesión.");
+        const body = await res.json();
+        accessToken = body.accessToken;
+        return body.accessToken as string;
+      })
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  return refreshInFlight;
+}
+
+async function withAuthRetry(path: string, doFetch: () => Promise<Response>): Promise<Response> {
+  const res = await doFetch();
+  if (res.status === 401 && path !== "/auth/refresh" && path !== "/auth/login") {
+    try {
+      await refreshAccessToken();
+      return await doFetch();
+    } catch {
+      accessToken = null;
+      onAuthFailure?.();
+    }
+  }
+  return res;
+}
+
+async function throwIfNotOk(res: Response): Promise<void> {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body?.error?.message ?? `Error ${res.status}`);
   }
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const res = await withAuthRetry(path, () =>
+    fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+        ...options.headers,
+      },
+    })
+  );
+
+  await throwIfNotOk(res);
   if (res.status === 204) return undefined as T;
   return res.json();
 }
 
 async function requestFormData<T>(path: string, formData: FormData): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
-    body: formData,
-  });
+  const res = await withAuthRetry(path, () =>
+    fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      credentials: "include",
+      headers: authHeaders(),
+      body: formData,
+    })
+  );
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.error?.message ?? `Error ${res.status}`);
-  }
+  await throwIfNotOk(res);
   return res.json();
 }
 
 async function requestBlob(path: string): Promise<Blob> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include",
-    headers: {
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
-  });
+  const res = await withAuthRetry(path, () =>
+    fetch(`${API_BASE_URL}${path}`, {
+      credentials: "include",
+      headers: authHeaders(),
+    })
+  );
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.error?.message ?? `Error ${res.status}`);
-  }
+  await throwIfNotOk(res);
   return res.blob();
 }
 

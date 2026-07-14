@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { api, setAccessToken } from "../lib/apiClient";
+import { api, setAccessToken, setOnAuthFailure } from "../lib/apiClient";
 
 export type Role = "OWNER" | "ADMIN" | "ACCOUNTANT" | "EMPLOYEE";
 
@@ -24,6 +24,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Si el token vence y renovarlo también falla (ej. la cookie de sesión de
+    // 7 días ya expiró), esto saca al usuario para que vuelva a entrar, en
+    // vez de dejar la app en un estado roto donde todo falla en silencio.
+    setOnAuthFailure(() => setUser(null));
+
     api
       .post<{ accessToken: string }>("/auth/refresh")
       .then(async ({ accessToken }) => {
