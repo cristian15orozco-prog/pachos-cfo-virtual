@@ -90,7 +90,7 @@ const dailySaleSchema = z.object({
  */
 router.post(
   "/daily-sale",
-  requireRole("ADMIN"),
+  requireRole("ADMIN", "EMPLOYEE"),
   auditAction("CASH_DAILY_SALE", "cash_movement"),
   asyncHandler(async (req, res) => {
     const parsed = dailySaleSchema.safeParse(req.body);
@@ -107,6 +107,11 @@ router.post(
     const rentSplit = await splitDailyRent({ createdById: req.auth!.userId });
     await ensureWeeklyPayrollAllocation({ createdById: req.auth!.userId });
 
+    // Una cajera puede agregar la venta, pero no puede ver ningún saldo.
+    const isEmployee = req.auth!.role === "EMPLOYEE";
+    if (isEmployee) {
+      return res.status(201).json({ data: { registered: true } });
+    }
     res.status(201).json({ data: { deposit, rentSplit } });
   })
 );

@@ -114,11 +114,20 @@ const manualAdjustSchema = z.object({
 
 router.post(
   "/manual-balance/adjust",
-  requireRole("ADMIN"),
+  requireRole("ADMIN", "EMPLOYEE"),
   auditAction("BANK_MANUAL_BALANCE_ADJUST", "bank_movement"),
   asyncHandler(async (req, res) => {
     const parsed = manualAdjustSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: { code: "INVALID_INPUT", message: parsed.error.message } });
+
+    // Una cajera solo puede agregar ventas en tarjeta (depósitos) — retiros y
+    // correcciones de saldo quedan reservados a Dueño/Administrador.
+    const isEmployee = req.auth!.role === "EMPLOYEE";
+    if (isEmployee && parsed.data.type !== "DEPOSIT") {
+      return res.status(403).json({
+        error: { code: "FORBIDDEN", message: "Solo puedes agregar depósitos (venta en tarjeta), no retiros." },
+      });
+    }
 
     const movement = await recordBankMovement({
       type: parsed.data.type,
@@ -126,7 +135,10 @@ router.post(
       notes: parsed.data.notes,
       createdById: req.auth!.userId,
     });
-    res.status(201).json({ data: movement });
+
+    // Una cajera puede agregar la venta, pero no puede ver el saldo del banco.
+    const { balanceAfter, ...movementWithoutBalance } = movement;
+    res.status(201).json({ data: isEmployee ? movementWithoutBalance : movement });
   })
 );
 

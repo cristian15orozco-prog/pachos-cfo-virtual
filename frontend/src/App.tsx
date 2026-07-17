@@ -13,6 +13,7 @@ import { ReportsPage } from "./pages/ReportsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { ReceiptsPage } from "./pages/ReceiptsPage";
 import { RegisterInvoicePage } from "./pages/RegisterInvoicePage";
+import { RegisterSalePage } from "./pages/RegisterSalePage";
 import { useAuth } from "./hooks/useAuth";
 
 function HomeRedirect() {
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/facturas" element={<InvoicesPage />} />
           <Route path="/comprobantes" element={<ReceiptsPage />} />
           <Route path="/registrar-factura" element={<RegisterInvoicePage />} />
+          <Route path="/registrar-venta" element={<RegisterSalePage />} />
           <Route path="/cheques" element={<ChecksPage />} />
           <Route path="/proveedores" element={<ProvidersPage />} />
           <Route path="/banco" element={<BankPage />} />
