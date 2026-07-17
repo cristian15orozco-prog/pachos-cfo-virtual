@@ -4,7 +4,7 @@ export function Card({ title, children }: { title?: string; children: ReactNode 
   return (
     <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
       {title && <h3 className="text-sm font-medium text-slate-500 mb-2">{title}</h3>}
-      {children}
+      <div className="overflow-x-auto">{children}</div>
     </div>
   );
 }

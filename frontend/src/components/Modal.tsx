@@ -10,7 +10,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
             ×
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="p-5 overflow-x-auto">{children}</div>
       </div>
     </div>
   );
