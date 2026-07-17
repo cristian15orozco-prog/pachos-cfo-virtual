@@ -24,10 +24,15 @@ router.post(
     try {
       const tokens = await login(parsed.data.email, parsed.data.password);
       await recordAudit({ req, action: "LOGIN", entityType: "user" });
+      // sameSite "none" es obligatorio aquí: el frontend (Vercel) y el backend
+      // (Render) viven en dominios distintos, así que toda petición entre
+      // ellos es "cross-site" — con "strict" el navegador nunca mandaba esta
+      // cookie de vuelta, /auth/refresh siempre fallaba, y la sesión se
+      // cerraba sola a los 15 minutos sin importar el reintento automático.
       res.cookie("refreshToken", tokens.refreshToken, {
         httpOnly: true,
         secure: true,
-        sameSite: "strict",
+        sameSite: "none",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
       return res.json({ accessToken: tokens.accessToken });
@@ -56,7 +61,9 @@ router.post(
 );
 
 router.post("/logout", (req, res) => {
-  res.clearCookie("refreshToken");
+  // Debe repetir los mismos atributos que se usaron al crearla (secure,
+  // sameSite) o el navegador no la reconoce como la misma cookie y no la borra.
+  res.clearCookie("refreshToken", { httpOnly: true, secure: true, sameSite: "none" });
   res.status(204).send();
 });
 
