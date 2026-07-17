@@ -29,6 +29,12 @@ interface BankMovement {
   createdAt: string;
 }
 
+interface CheckSummary {
+  id: string;
+  amount: string;
+  status: "PENDING" | "ISSUED" | "CLEARED" | "CANCELLED";
+}
+
 export function BankPage() {
   const { user } = useAuth();
   const isOwner = user?.role === "OWNER";
@@ -52,6 +58,17 @@ export function BankPage() {
     queryFn: () => api.get<{ data: BankMovement[] }>("/bank/manual-balance/movements").then((r) => r.data),
     enabled: !!accounts.data?.isManual,
   });
+
+  const checks = useQuery({
+    queryKey: ["checks"],
+    queryFn: () => api.get<{ data: CheckSummary[] }>("/checks").then((r) => r.data),
+  });
+
+  const pendingChecks = checks.data?.filter((c) => c.status === "ISSUED" || c.status === "PENDING") ?? [];
+  const pendingChecksTotal = pendingChecks.reduce((sum, c) => sum + Number(c.amount), 0);
+  const totalBankBalance =
+    accounts.data?.data.reduce((sum, acc) => sum + (acc.balances.available ?? acc.balances.current ?? 0), 0) ?? 0;
+  const virtualAvailable = totalBankBalance - pendingChecksTotal;
 
   const sync = useMutation({
     mutationFn: () => api.post("/bank/sync"),
@@ -181,6 +198,16 @@ export function BankPage() {
         {accounts.data?.data.map((acc) => (
           <Metric key={acc.account_id} label={acc.name} value={money(acc.balances.available ?? acc.balances.current ?? 0)} tone="success" />
         ))}
+        <Metric
+          label={`Cheques pendientes de cobrar (${pendingChecks.length})`}
+          value={money(pendingChecksTotal)}
+          tone="warning"
+        />
+        <Metric
+          label="Saldo disponible real (ya descontando cheques)"
+          value={money(virtualAvailable)}
+          tone={virtualAvailable < 0 ? "danger" : "success"}
+        />
       </div>
 
       {isManual && (
