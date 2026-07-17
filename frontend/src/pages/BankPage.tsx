@@ -251,28 +251,30 @@ export function BankPage() {
         </Card>
       )}
 
-      <Card title="Movimientos recientes (solo lectura)">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-slate-400 border-b border-slate-100">
-              <th className="py-2">Fecha</th>
-              <th>Descripción</th>
-              <th>Tipo</th>
-              <th className="text-right">Monto</th>
-            </tr>
-          </thead>
-          <tbody>
-            {transactions.data?.map((t) => (
-              <tr key={t.id} className="border-b border-slate-50">
-                <td className="py-2">{formatDateOnly(t.transactionDate)}</td>
-                <td>{t.description}</td>
-                <td>{t.type}</td>
-                <td className="text-right">{money(t.amount)}</td>
+      {!isManual && (
+        <Card title="Movimientos recientes (solo lectura)">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-slate-400 border-b border-slate-100">
+                <th className="py-2">Fecha</th>
+                <th>Descripción</th>
+                <th>Tipo</th>
+                <th className="text-right">Monto</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+            </thead>
+            <tbody>
+              {transactions.data?.map((t) => (
+                <tr key={t.id} className="border-b border-slate-50">
+                  <td className="py-2">{formatDateOnly(t.transactionDate)}</td>
+                  <td>{t.description}</td>
+                  <td>{t.type}</td>
+                  <td className="text-right">{money(t.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
 
       {showManualForm && (
         <Modal title="Actualizar Saldo Manual de TD Bank" onClose={() => setShowManualForm(false)}>
