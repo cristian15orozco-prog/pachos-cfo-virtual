@@ -14,6 +14,8 @@ interface Check {
   status: "PENDING" | "ISSUED" | "CLEARED" | "CANCELLED";
   issueDate: string;
   reconciled: boolean;
+  invoiceId: string | null;
+  notes: string | null;
 }
 
 interface InvoiceOption {
@@ -43,10 +45,15 @@ const emptyForm = {
 export function ChecksPage() {
   const { user } = useAuth();
   const canCreate = user?.role === "OWNER" || user?.role === "ADMIN";
+  const isOwner = user?.role === "OWNER";
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
+
+  const [editingCheck, setEditingCheck] = useState<Check | null>(null);
+  const [editForm, setEditForm] = useState(emptyForm);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["checks"],
@@ -56,7 +63,7 @@ export function ChecksPage() {
   const { data: invoices } = useQuery({
     queryKey: ["invoices-simple"],
     queryFn: () => api.get<{ data: InvoiceOption[] }>("/invoices").then((r) => r.data),
-    enabled: showForm,
+    enabled: showForm || !!editingCheck,
   });
 
   const createCheck = useMutation({
@@ -83,6 +90,48 @@ export function ChecksPage() {
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     createCheck.mutate();
+  }
+
+  const updateCheck = useMutation({
+    mutationFn: () => {
+      if (!editingCheck) return Promise.reject(new Error("Sin cheque seleccionado"));
+      return api.patch(`/checks/${editingCheck.id}`, {
+        checkNumber: editForm.checkNumber,
+        payee: editForm.payee,
+        bankName: editForm.bankName,
+        amount: Number(editForm.amount) || 0,
+        issueDate: editForm.issueDate,
+        invoiceId: editForm.invoiceId || undefined,
+        notes: editForm.notes || undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["checks"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["cashflow-summary"] });
+      setEditingCheck(null);
+      setEditError(null);
+    },
+    onError: (err: Error) => setEditError(err.message),
+  });
+
+  function openEditModal(check: Check) {
+    setEditingCheck(check);
+    setEditForm({
+      checkNumber: check.checkNumber,
+      payee: check.payee,
+      bankName: check.bankName,
+      amount: check.amount,
+      issueDate: check.issueDate.slice(0, 10),
+      invoiceId: check.invoiceId ?? "",
+      notes: check.notes ?? "",
+    });
+    setEditError(null);
+  }
+
+  function handleEditSubmit(e: FormEvent) {
+    e.preventDefault();
+    updateCheck.mutate();
   }
 
   const [markClearedError, setMarkClearedError] = useState<string | null>(null);
@@ -152,7 +201,7 @@ export function ChecksPage() {
                 <td>{c.reconciled ? <Badge tone="success">Sí</Badge> : <Badge>No</Badge>}</td>
                 <td className="text-right">{money(c.amount)}</td>
                 {canCreate && (
-                  <td className="text-right pl-3 whitespace-nowrap">
+                  <td className="text-right pl-3 space-x-3 whitespace-nowrap">
                     {(c.status === "ISSUED" || c.status === "PENDING") && (
                       <button
                         onClick={() => markCleared.mutate(c.id)}
@@ -160,6 +209,11 @@ export function ChecksPage() {
                         className="text-xs text-pachos-green underline disabled:opacity-50"
                       >
                         Marcar como cobrado
+                      </button>
+                    )}
+                    {isOwner && (
+                      <button onClick={() => openEditModal(c)} className="text-xs text-slate-500 underline">
+                        ✏️ Editar
                       </button>
                     )}
                   </td>
@@ -268,6 +322,106 @@ export function ChecksPage() {
                 className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {createCheck.isPending ? "Guardando..." : "Guardar cheque"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {editingCheck && (
+        <Modal title={`Editar Cheque — #${editingCheck.checkNumber}`} onClose={() => setEditingCheck(null)}>
+          <form onSubmit={handleEditSubmit}>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Número de cheque">
+                <input
+                  required
+                  className={inputClass}
+                  value={editForm.checkNumber}
+                  onChange={(e) => setEditForm({ ...editForm, checkNumber: e.target.value })}
+                />
+              </FormField>
+              <FormField label="Banco">
+                <input
+                  required
+                  className={inputClass}
+                  value={editForm.bankName}
+                  onChange={(e) => setEditForm({ ...editForm, bankName: e.target.value })}
+                />
+              </FormField>
+            </div>
+
+            <FormField label="Beneficiario">
+              <input
+                required
+                className={inputClass}
+                value={editForm.payee}
+                onChange={(e) => setEditForm({ ...editForm, payee: e.target.value })}
+              />
+            </FormField>
+
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Fecha del cheque">
+                <input
+                  required
+                  type="date"
+                  className={inputClass}
+                  value={editForm.issueDate}
+                  onChange={(e) => setEditForm({ ...editForm, issueDate: e.target.value })}
+                />
+              </FormField>
+              <FormField label="Monto">
+                <input
+                  required
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className={inputClass}
+                  value={editForm.amount}
+                  onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                />
+              </FormField>
+            </div>
+
+            <FormField label="Factura asociada (opcional)">
+              <select
+                className={inputClass}
+                value={editForm.invoiceId}
+                onChange={(e) => setEditForm({ ...editForm, invoiceId: e.target.value })}
+              >
+                <option value="">Sin factura asociada</option>
+                {invoices?.map((inv) => (
+                  <option key={inv.id} value={inv.id}>
+                    {inv.provider.name} — {inv.invoiceNumber} ({money(inv.total)})
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <FormField label="Notas (opcional)">
+              <textarea
+                className={inputClass}
+                rows={2}
+                value={editForm.notes}
+                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+              />
+            </FormField>
+
+            {editError && <p className="text-sm text-red-600 mb-3">{editError}</p>}
+
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setEditingCheck(null)}
+                className="text-sm px-4 py-2 rounded-md border border-slate-300"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={updateCheck.isPending}
+                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+              >
+                {updateCheck.isPending ? "Guardando..." : "Guardar cambios"}
               </button>
             </div>
           </form>

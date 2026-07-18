@@ -8,9 +8,11 @@ import { useAuth } from "../hooks/useAuth";
 interface Provider {
   id: string;
   name: string;
+  contactName: string | null;
   category: string | null;
   phone: string | null;
   email: string | null;
+  address: string | null;
   invoiceCount: number;
   pendingBalance: number;
 }
@@ -48,6 +50,10 @@ export function ProvidersPage() {
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
 
+  const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
+  const [editForm, setEditForm] = useState(emptyForm);
+  const [editError, setEditError] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ["providers"],
     queryFn: () => api.get<{ data: Provider[] }>("/providers").then((r) => r.data),
@@ -79,6 +85,46 @@ export function ProvidersPage() {
   }
 
   const isOwner = user?.role === "OWNER";
+
+  const updateProvider = useMutation({
+    mutationFn: () => {
+      if (!editingProvider) return Promise.reject(new Error("Sin proveedor seleccionado"));
+      return api.patch(`/providers/${editingProvider.id}`, {
+        name: editForm.name,
+        contactName: editForm.contactName || undefined,
+        phone: editForm.phone || undefined,
+        email: editForm.email || undefined,
+        address: editForm.address || undefined,
+        category: editForm.category || undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["providers"] });
+      queryClient.invalidateQueries({ queryKey: ["providers-simple"] });
+      queryClient.invalidateQueries({ queryKey: ["providers-names"] });
+      setEditingProvider(null);
+      setEditError(null);
+    },
+    onError: (err: Error) => setEditError(err.message),
+  });
+
+  function openEditModal(provider: Provider) {
+    setEditingProvider(provider);
+    setEditForm({
+      name: provider.name,
+      contactName: provider.contactName ?? "",
+      phone: provider.phone ?? "",
+      email: provider.email ?? "",
+      address: provider.address ?? "",
+      category: provider.category ?? "",
+    });
+    setEditError(null);
+  }
+
+  function handleEditSubmit(e: FormEvent) {
+    e.preventDefault();
+    updateProvider.mutate();
+  }
   const [viewingProvider, setViewingProvider] = useState<Provider | null>(null);
   const [viewError, setViewError] = useState<string | null>(null);
 
@@ -128,6 +174,7 @@ export function ProvidersPage() {
               <th>Contacto</th>
               <th># Facturas</th>
               <th className="text-right">Balance pendiente</th>
+              {isOwner && <th></th>}
             </tr>
           </thead>
           <tbody>
@@ -142,6 +189,19 @@ export function ProvidersPage() {
                 <td>{p.phone ?? p.email ?? "—"}</td>
                 <td>{p.invoiceCount}</td>
                 <td className="text-right">{money(p.pendingBalance)}</td>
+                {isOwner && (
+                  <td className="text-right pl-3 whitespace-nowrap">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditModal(p);
+                      }}
+                      className="text-xs text-slate-500 underline"
+                    >
+                      ✏️ Editar
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -272,6 +332,83 @@ export function ProvidersPage() {
               </tbody>
             </table>
           )}
+        </Modal>
+      )}
+
+      {editingProvider && (
+        <Modal title={`Editar Proveedor — ${editingProvider.name}`} onClose={() => setEditingProvider(null)}>
+          <form onSubmit={handleEditSubmit}>
+            <FormField label="Nombre">
+              <input
+                required
+                className={inputClass}
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Categoría">
+              <input
+                className={inputClass}
+                placeholder="Ej. Bebidas, Carnicería, Limpieza…"
+                value={editForm.category}
+                onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Nombre de contacto">
+              <input
+                className={inputClass}
+                value={editForm.contactName}
+                onChange={(e) => setEditForm({ ...editForm, contactName: e.target.value })}
+              />
+            </FormField>
+
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Teléfono">
+                <input
+                  className={inputClass}
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                />
+              </FormField>
+              <FormField label="Email">
+                <input
+                  type="email"
+                  className={inputClass}
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                />
+              </FormField>
+            </div>
+
+            <FormField label="Dirección">
+              <input
+                className={inputClass}
+                value={editForm.address}
+                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+              />
+            </FormField>
+
+            {editError && <p className="text-sm text-red-600 mb-3">{editError}</p>}
+
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setEditingProvider(null)}
+                className="text-sm px-4 py-2 rounded-md border border-slate-300"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={updateProvider.isPending}
+                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+              >
+                {updateProvider.isPending ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </div>
+          </form>
         </Modal>
       )}
     </div>

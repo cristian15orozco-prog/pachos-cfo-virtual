@@ -9,9 +9,15 @@ import { useAuth } from "../hooks/useAuth";
 
 interface Invoice {
   id: string;
+  providerId: string;
   invoiceNumber: string;
-  total: string;
+  invoiceDate: string;
   dueDate: string;
+  subtotal: string;
+  tax: string;
+  total: string;
+  categoryId: string | null;
+  notes: string | null;
   status: "PENDING" | "PARTIAL" | "PAID" | "OVERDUE";
   isDuplicateFlag: boolean;
   provider: { name: string };
@@ -85,16 +91,20 @@ export function InvoicesPage() {
     queryFn: () => api.get<{ data: Invoice[] }>("/invoices").then((r) => r.data),
   });
 
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [editForm, setEditForm] = useState(emptyForm);
+  const [editError, setEditError] = useState<string | null>(null);
+
   const { data: providers } = useQuery({
     queryKey: ["providers-simple"],
     queryFn: () => api.get<{ data: Provider[] }>("/providers").then((r) => r.data),
-    enabled: showForm,
+    enabled: showForm || !!editingInvoice,
   });
 
   const { data: categories } = useQuery({
     queryKey: ["categories"],
     queryFn: () => api.get<{ data: Category[] }>("/categories").then((r) => r.data),
-    enabled: showForm,
+    enabled: showForm || !!editingInvoice,
   });
 
   const subtotalNum = Number(form.subtotal) || 0;
@@ -189,6 +199,53 @@ export function InvoicesPage() {
       return;
     }
     createInvoice.mutate();
+  }
+
+  const updateInvoice = useMutation({
+    mutationFn: () => {
+      if (!editingInvoice) return Promise.reject(new Error("Sin factura seleccionada"));
+      const editSubtotal = Number(editForm.subtotal) || 0;
+      const editTax = Number(editForm.tax) || 0;
+      return api.patch(`/invoices/${editingInvoice.id}`, {
+        providerId: editForm.providerId,
+        invoiceNumber: editForm.invoiceNumber,
+        invoiceDate: editForm.invoiceDate,
+        dueDate: editForm.dueDate,
+        subtotal: editSubtotal,
+        tax: editTax,
+        total: editSubtotal + editTax,
+        categoryId: editForm.categoryId || undefined,
+        notes: editForm.notes || undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["cashflow-summary"] });
+      setEditingInvoice(null);
+      setEditError(null);
+    },
+    onError: (err: Error) => setEditError(err.message),
+  });
+
+  function openEditModal(invoice: Invoice) {
+    setEditingInvoice(invoice);
+    setEditForm({
+      providerId: invoice.providerId,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceDate: invoice.invoiceDate.slice(0, 10),
+      dueDate: invoice.dueDate.slice(0, 10),
+      subtotal: invoice.subtotal,
+      tax: invoice.tax,
+      categoryId: invoice.categoryId ?? "",
+      notes: invoice.notes ?? "",
+    });
+    setEditError(null);
+  }
+
+  function handleEditSubmit(e: FormEvent) {
+    e.preventDefault();
+    updateInvoice.mutate();
   }
 
   function openPaymentModal(invoice: Invoice) {
@@ -305,6 +362,11 @@ export function InvoicesPage() {
                     <button onClick={() => openAttachModal(inv)} className="text-xs text-slate-500 underline">
                       📷 Adjuntar foto
                     </button>
+                    {isOwner && (
+                      <button onClick={() => openEditModal(inv)} className="text-xs text-slate-500 underline">
+                        ✏️ Editar
+                      </button>
+                    )}
                     {isOwner &&
                       inv.attachments
                         .filter((a) => a.mimeType === "application/pdf")
@@ -691,6 +753,134 @@ export function InvoicesPage() {
                 className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {attachPhotos.isPending ? "Subiendo..." : "Adjuntar"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {editingInvoice && (
+        <Modal title={`Editar Factura — ${editingInvoice.invoiceNumber}`} onClose={() => setEditingInvoice(null)}>
+          <form onSubmit={handleEditSubmit}>
+            <FormField label="Proveedor">
+              <select
+                required
+                className={inputClass}
+                value={editForm.providerId}
+                onChange={(e) => setEditForm({ ...editForm, providerId: e.target.value })}
+              >
+                <option value="">Selecciona un proveedor…</option>
+                {providers?.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <FormField label="Número de factura">
+              <input
+                required
+                className={inputClass}
+                value={editForm.invoiceNumber}
+                onChange={(e) => setEditForm({ ...editForm, invoiceNumber: e.target.value })}
+              />
+            </FormField>
+
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Fecha de factura">
+                <input
+                  required
+                  type="date"
+                  className={inputClass}
+                  value={editForm.invoiceDate}
+                  onChange={(e) => setEditForm({ ...editForm, invoiceDate: e.target.value })}
+                />
+              </FormField>
+              <FormField label="Fecha de vencimiento">
+                <input
+                  required
+                  type="date"
+                  className={inputClass}
+                  value={editForm.dueDate}
+                  onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
+                />
+              </FormField>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Subtotal">
+                <input
+                  required
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className={inputClass}
+                  value={editForm.subtotal}
+                  onChange={(e) => setEditForm({ ...editForm, subtotal: e.target.value })}
+                />
+              </FormField>
+              <FormField label="Impuestos">
+                <input
+                  required
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className={inputClass}
+                  value={editForm.tax}
+                  onChange={(e) => setEditForm({ ...editForm, tax: e.target.value })}
+                />
+              </FormField>
+            </div>
+
+            <FormField label="Total">
+              <input
+                disabled
+                className={`${inputClass} bg-slate-50 text-slate-500`}
+                value={((Number(editForm.subtotal) || 0) + (Number(editForm.tax) || 0)).toFixed(2)}
+              />
+            </FormField>
+
+            <FormField label="Categoría (opcional)">
+              <select
+                className={inputClass}
+                value={editForm.categoryId}
+                onChange={(e) => setEditForm({ ...editForm, categoryId: e.target.value })}
+              >
+                <option value="">Sin categoría</option>
+                {categories?.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <FormField label="Notas (opcional)">
+              <textarea
+                className={inputClass}
+                rows={2}
+                value={editForm.notes}
+                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+              />
+            </FormField>
+
+            {editError && <p className="text-sm text-red-600 mb-3">{editError}</p>}
+
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setEditingInvoice(null)}
+                className="text-sm px-4 py-2 rounded-md border border-slate-300"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={updateInvoice.isPending}
+                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+              >
+                {updateInvoice.isPending ? "Guardando..." : "Guardar cambios"}
               </button>
             </div>
           </form>
