@@ -31,31 +31,6 @@ async function createShortfallAlert(params: { targetAccount: CashAccount; missin
   });
 }
 
-/**
- * Separa automáticamente la renta del día desde Ventas del Día. Si no hay
- * fondos suficientes, no mueve nada y deja una alerta pendiente en vez de
- * fallar el registro de la venta.
- */
-export async function splitDailyRent(params: { createdById: string }) {
-  const settings = await getSettings();
-  const rentAmount = Number(settings.dailyRentAmount);
-  if (rentAmount <= 0) return null;
-
-  const available = await getAccountBalance("DAILY_SALES");
-  if (available < rentAmount) {
-    await createShortfallAlert({ targetAccount: "RENT", missingAmount: rentAmount });
-    return null;
-  }
-
-  return transferBetweenAccounts({
-    fromAccount: "DAILY_SALES",
-    toAccount: "RENT",
-    amount: rentAmount,
-    notes: "Separación automática de renta",
-    createdById: params.createdById,
-  });
-}
-
 function getMostRecentMonday(date: Date): Date {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const day = d.getUTCDay(); // 0=domingo, 1=lunes, ...

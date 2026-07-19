@@ -71,6 +71,14 @@ export function CashFlowPage() {
     queryFn: () => api.get<{ data: { dailyRentAmount: string } }>("/business-settings").then((r) => r.data),
     enabled: canRegisterSale,
   });
+  const cashRegister = useQuery({
+    queryKey: ["cash-register"],
+    queryFn: () =>
+      api
+        .get<{ data: { accounts: Record<"DAILY_SALES" | "RENT" | "PAYROLL" | "SAVINGS", number> } }>("/cash-register")
+        .then((r) => r.data),
+    enabled: canRegisterSale,
+  });
 
   const [showSaleForm, setShowSaleForm] = useState(false);
   const [saleAmount, setSaleAmount] = useState("");
@@ -103,6 +111,24 @@ export function CashFlowPage() {
     registerSale.mutate();
   }
 
+  const [rentError, setRentError] = useState<string | null>(null);
+  const [rentSuccess, setRentSuccess] = useState(false);
+
+  const deductRent = useMutation({
+    mutationFn: () => api.post("/cash-register/deduct-rent"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cashflow-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["cashflow-timeline"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-register"] });
+      queryClient.invalidateQueries({ queryKey: ["cash-register-movements"] });
+      setRentError(null);
+      setRentSuccess(true);
+      setTimeout(() => setRentSuccess(false), 4000);
+    },
+    onError: (err: Error) => setRentError(err.message),
+  });
+
   const chartData = (history.data ?? [])
     .slice()
     .reverse()
@@ -118,14 +144,39 @@ export function CashFlowPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Flujo de Caja</h2>
         {canRegisterSale && (
-          <button
-            onClick={() => setShowSaleForm(true)}
-            className="bg-pachos-green text-white text-sm rounded-md px-4 py-2"
-          >
-            + Venta en Efectivo del Día
-          </button>
+          <div className="flex gap-2 items-center shrink-0">
+            <button
+              onClick={() => deductRent.mutate()}
+              disabled={deductRent.isPending}
+              className="border border-pachos-green text-pachos-green text-sm rounded-md px-4 py-2 disabled:opacity-50"
+            >
+              {deductRent.isPending
+                ? "Descontando..."
+                : `🏠 Descontar Renta${businessSettings.data ? ` (${money(Number(businessSettings.data.dailyRentAmount))})` : ""}`}
+            </button>
+            <button
+              onClick={() => setShowSaleForm(true)}
+              className="bg-pachos-green text-white text-sm rounded-md px-4 py-2"
+            >
+              + Venta en Efectivo del Día
+            </button>
+          </div>
         )}
       </div>
+
+      {canRegisterSale && rentError && (
+        <p className="text-sm text-red-600">{rentError}</p>
+      )}
+      {canRegisterSale && rentSuccess && (
+        <p className="text-sm text-pachos-green">Renta separada correctamente ✓</p>
+      )}
+      {canRegisterSale && cashRegister.data && (
+        <p className="text-xs text-slate-400 -mt-2">
+          Ventas del Día disponible: <strong>{money(cashRegister.data.accounts.DAILY_SALES)}</strong> · Renta ya
+          apartada: {money(cashRegister.data.accounts.RENT)}. La renta ya no se descuenta sola — usa el botón cuando
+          quieras separarla.
+        </p>
+      )}
 
       {summary.data?.willGoNegative && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-md px-4 py-3">
@@ -217,12 +268,10 @@ export function CashFlowPage() {
                 onChange={(e) => setSaleAmount(e.target.value)}
               />
             </FormField>
-            {businessSettings.data && (
-              <p className="text-xs text-slate-500 bg-slate-50 rounded-md px-3 py-2 mb-3">
-                De este monto se separarán automáticamente {money(Number(businessSettings.data.dailyRentAmount))} para
-                Renta.
-              </p>
-            )}
+            <p className="text-xs text-slate-500 bg-slate-50 rounded-md px-3 py-2 mb-3">
+              Esto solo agrega la venta a Ventas del Día — la renta ya no se separa sola. Usa el botón "Descontar
+              Renta" cuando quieras apartarla.
+            </p>
             <FormField label="Notas (opcional)">
               <input
                 className={inputClass}

@@ -11,7 +11,8 @@ import {
   recordCashMovement,
   transferBetweenAccounts,
 } from "../modules/cashflow/cashRegisterService";
-import { splitDailyRent, ensureWeeklyPayrollAllocation } from "../modules/cashflow/autoAllocationService";
+import { ensureWeeklyPayrollAllocation } from "../modules/cashflow/autoAllocationService";
+import { getSettings } from "../modules/settings/businessSettingsService";
 import { prisma } from "../lib/prisma";
 
 const router = Router();
@@ -83,10 +84,10 @@ const dailySaleSchema = z.object({
 });
 
 /**
- * Registra la venta en efectivo del día en Ventas del Día y dispara el
- * reparto automático de renta (y, de paso, revisa si toca el de planilla
- * semanal) — ver docs/BUSINESS_RULES.md. Si no alcanza para separar la
- * renta, no bloquea la venta: queda una alerta pendiente.
+ * Registra la venta en efectivo del día en Ventas del Día. La renta ya NO se
+ * separa automáticamente aquí — el Dueño la descuenta cuando quiere desde el
+ * botón "Descontar Renta" en Flujo de Caja (ver POST /deduct-rent). Sí se
+ * revisa la planilla semanal, que es idempotente por semana.
  */
 router.post(
   "/daily-sale",
@@ -104,7 +105,6 @@ router.post(
       createdById: req.auth!.userId,
     });
 
-    const rentSplit = await splitDailyRent({ createdById: req.auth!.userId });
     await ensureWeeklyPayrollAllocation({ createdById: req.auth!.userId });
 
     // Una cajera puede agregar la venta, pero no puede ver ningún saldo.
@@ -112,7 +112,39 @@ router.post(
     if (isEmployee) {
       return res.status(201).json({ data: { registered: true } });
     }
-    res.status(201).json({ data: { deposit, rentSplit } });
+    res.status(201).json({ data: { deposit } });
+  })
+);
+
+/**
+ * Separación MANUAL de renta — reemplaza el reparto automático (se
+ * descontaba de más: una vez por cada venta registrada en vez de una vez al
+ * día). El Dueño/Administrador decide cuándo apartar la renta desde Ventas
+ * del Día, usando el monto configurado en Configuración.
+ */
+router.post(
+  "/deduct-rent",
+  requireRole("ADMIN"),
+  auditAction("CASH_RENT_DEDUCT_MANUAL", "cash_movement"),
+  asyncHandler(async (req, res) => {
+    const settings = await getSettings();
+    const rentAmount = Number(settings.dailyRentAmount);
+    if (rentAmount <= 0) {
+      return res.status(400).json({ error: { code: "INVALID_INPUT", message: "El monto de renta diaria no está configurado." } });
+    }
+
+    try {
+      const result = await transferBetweenAccounts({
+        fromAccount: "DAILY_SALES",
+        toAccount: "RENT",
+        amount: rentAmount,
+        notes: "Separación manual de renta",
+        createdById: req.auth!.userId,
+      });
+      res.status(201).json({ data: result });
+    } catch (error) {
+      res.status(400).json({ error: { code: "RENT_DEDUCT_FAILED", message: (error as Error).message } });
+    }
   })
 );
 
