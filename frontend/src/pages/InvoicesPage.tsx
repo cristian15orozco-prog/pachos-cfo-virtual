@@ -107,6 +107,20 @@ export function InvoicesPage() {
     enabled: showForm || !!editingInvoice,
   });
 
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"" | Invoice["status"]>("");
+
+  const filteredInvoices = useMemo(() => {
+    if (!data) return [];
+    const term = search.trim().toLowerCase();
+    return data.filter((inv) => {
+      const matchesSearch =
+        !term || inv.invoiceNumber.toLowerCase().includes(term) || inv.provider.name.toLowerCase().includes(term);
+      const matchesStatus = !statusFilter || inv.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [data, search, statusFilter]);
+
   const subtotalNum = Number(form.subtotal) || 0;
   const taxNum = Number(form.tax) || 0;
   const total = useMemo(() => subtotalNum + taxNum, [subtotalNum, taxNum]);
@@ -313,17 +327,51 @@ export function InvoicesPage() {
         {canCreate && (
           <button
             onClick={() => setShowForm(true)}
-            className="bg-pachos-green text-white text-sm rounded-md px-4 py-2"
+            className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 shrink-0"
           >
             + Nueva Factura
           </button>
         )}
       </div>
 
+      {!isLoading && !!data?.length && (
+        <div className="flex flex-wrap gap-3">
+          <div className="relative flex-1 min-w-[220px]">
+            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4.3-4.3" />
+              </svg>
+            </span>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por proveedor o número de factura…"
+              className="w-full h-10 rounded-md border border-slate-300 pl-9 pr-3 text-sm focus:outline-none focus:border-brand-orange focus:ring-4 focus:ring-[rgba(242,104,34,0.12)]"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+            className="h-10 rounded-md border border-slate-300 px-3 text-sm text-slate-700 focus:outline-none focus:border-brand-orange focus:ring-4 focus:ring-[rgba(242,104,34,0.12)]"
+          >
+            <option value="">Todos los estados</option>
+            <option value="PENDING">Pendiente</option>
+            <option value="PARTIAL">Parcial</option>
+            <option value="PAID">Pagada</option>
+            <option value="OVERDUE">Vencida</option>
+          </select>
+        </div>
+      )}
+
       <Card>
         {isLoading && <p className="text-slate-400 text-sm">Cargando...</p>}
         {!isLoading && data?.length === 0 && (
           <p className="text-slate-400 text-sm">Todavía no hay facturas registradas.</p>
+        )}
+        {!isLoading && !!data?.length && filteredInvoices.length === 0 && (
+          <p className="text-slate-400 text-sm">Ninguna factura coincide con la búsqueda o el filtro.</p>
         )}
         {viewError && <p className="text-sm text-red-600 mb-3">{viewError}</p>}
         <table className="w-full text-sm">
@@ -338,7 +386,7 @@ export function InvoicesPage() {
             </tr>
           </thead>
           <tbody>
-            {data?.map((inv) => (
+            {filteredInvoices.map((inv) => (
               <tr key={inv.id} className="border-b border-slate-50">
                 <td className="py-2">{inv.provider.name}</td>
                 <td>
@@ -354,7 +402,7 @@ export function InvoicesPage() {
                     {inv.status !== "PAID" && (
                       <button
                         onClick={() => openPaymentModal(inv)}
-                        className="text-xs text-pachos-green underline"
+                        className="text-xs text-slate-600 underline"
                       >
                         Registrar Pago
                       </button>
@@ -596,7 +644,7 @@ export function InvoicesPage() {
               <button
                 type="submit"
                 disabled={createInvoice.isPending}
-                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {createInvoice.isPending ? "Guardando..." : "Guardar factura"}
               </button>
@@ -721,7 +769,7 @@ export function InvoicesPage() {
               <button
                 type="submit"
                 disabled={recordPayment.isPending}
-                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {recordPayment.isPending ? "Guardando..." : "Registrar pago"}
               </button>
@@ -750,7 +798,7 @@ export function InvoicesPage() {
               <button
                 type="submit"
                 disabled={attachPhotos.isPending || attachPages.length === 0}
-                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {attachPhotos.isPending ? "Subiendo..." : "Adjuntar"}
               </button>
@@ -878,7 +926,7 @@ export function InvoicesPage() {
               <button
                 type="submit"
                 disabled={updateInvoice.isPending}
-                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {updateInvoice.isPending ? "Guardando..." : "Guardar cambios"}
               </button>
