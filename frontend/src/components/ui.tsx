@@ -9,13 +9,23 @@ export function Card({ title, children }: { title?: string; children: ReactNode 
   );
 }
 
-export function Metric({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "danger" | "success" | "warning" }) {
+export function Metric({
+  label,
+  value,
+  tone = "default",
+  size = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "danger" | "success" | "warning";
+  size?: "default" | "lg";
+}) {
   const toneClass =
-    tone === "danger" ? "text-red-600" : tone === "success" ? "text-pachos-green" : tone === "warning" ? "text-amber-600" : "text-slate-900";
+    tone === "danger" ? "text-status-danger" : tone === "success" ? "text-status-success" : tone === "warning" ? "text-status-warning" : "text-slate-900";
   return (
     <Card>
       <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">{label}</p>
-      <p className={`text-2xl font-bold ${toneClass}`}>{value}</p>
+      <p className={`font-bold ${size === "lg" ? "text-4xl" : "text-2xl"} ${toneClass}`}>{value}</p>
     </Card>
   );
 }
@@ -49,12 +59,13 @@ export function todayLocalDateString(): string {
   return `${year}-${month}-${day}`;
 }
 
-export function Badge({ children, tone = "default" }: { children: ReactNode; tone?: "default" | "warning" | "danger" | "success" }) {
+export function Badge({ children, tone = "default" }: { children: ReactNode; tone?: "default" | "warning" | "danger" | "success" | "info" }) {
   const toneClass = {
     default: "bg-slate-100 text-slate-700",
-    warning: "bg-amber-100 text-amber-800",
-    danger: "bg-red-100 text-red-700",
-    success: "bg-emerald-100 text-emerald-700",
+    warning: "bg-status-warningSoft text-status-warning",
+    danger: "bg-status-dangerSoft text-status-danger",
+    success: "bg-status-successSoft text-status-success",
+    info: "bg-status-infoSoft text-status-info",
   }[tone];
   return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${toneClass}`}>{children}</span>;
 }

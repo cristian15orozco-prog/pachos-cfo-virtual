@@ -31,9 +31,14 @@ export function DashboardPage() {
         <p className="text-slate-500 text-sm">Pachos Supermarket — resumen financiero en tiempo real</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Metric label="Saldo TD Bank" value={money(data.bankBalance)} tone="success" />
-        <Metric label="Venta del Día (disponible para usar)" value={money(data.cashAccounts.DAILY_SALES)} tone="success" />
+      {/* Las dos cifras que realmente se pueden usar hoy — con más peso visual
+          que el resto, para que no compitan con conteos secundarios. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Metric label="Saldo TD Bank" value={money(data.bankBalance)} tone="success" size="lg" />
+        <Metric label="Venta del Día (disponible para usar)" value={money(data.cashAccounts.DAILY_SALES)} tone="success" size="lg" />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Metric label="Facturas pendientes" value={`${data.pendingInvoices.count} · ${money(data.pendingInvoices.total)}`} />
         <Metric label="Facturas vencidas" value={`${data.overdueInvoices.count} · ${money(data.overdueInvoices.total)}`} tone="danger" />
         <Metric label="Cheques emitidos" value={String(data.checksIssued)} />
@@ -64,7 +69,7 @@ export function DashboardPage() {
             {Object.entries(data.cashFlowProjection).map(([days, value]) => (
               <div key={days} className="text-center">
                 <p className="text-slate-400">{days} días</p>
-                <p className={`font-bold ${value < 0 ? "text-red-600" : "text-pachos-green"}`}>{money(value)}</p>
+                <p className={`font-bold ${value < 0 ? "text-status-danger" : "text-status-success"}`}>{money(value)}</p>
               </div>
             ))}
           </div>
@@ -76,7 +81,7 @@ export function DashboardPage() {
             {data.alerts.slice(0, 6).map((alert) => (
               <li key={alert.id} className="flex items-center justify-between text-sm">
                 <span>{alert.message}</span>
-                <Badge tone={alert.severity === "CRITICAL" ? "danger" : alert.severity === "WARNING" ? "warning" : "default"}>
+                <Badge tone={alert.severity === "CRITICAL" ? "danger" : alert.severity === "WARNING" ? "warning" : "info"}>
                   {alert.severity}
                 </Badge>
               </li>
