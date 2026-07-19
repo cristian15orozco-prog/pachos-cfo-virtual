@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, ComponentType } from "react";
 
 export function Card({ title, children }: { title?: string; children: ReactNode }) {
   return (
@@ -9,23 +9,47 @@ export function Card({ title, children }: { title?: string; children: ReactNode 
   );
 }
 
+interface IconProps {
+  size?: number | string;
+  strokeWidth?: number | string;
+}
+
 export function Metric({
   label,
   value,
   tone = "default",
   size = "default",
+  icon: Icon,
 }: {
   label: string;
   value: string;
   tone?: "default" | "danger" | "success" | "warning";
   size?: "default" | "lg";
+  icon?: ComponentType<IconProps>;
 }) {
   const toneClass =
     tone === "danger" ? "text-status-danger" : tone === "success" ? "text-status-success" : tone === "warning" ? "text-status-warning" : "text-slate-900";
+  const chipClass =
+    tone === "danger"
+      ? "bg-status-dangerSoft text-status-danger"
+      : tone === "success"
+        ? "bg-status-successSoft text-status-success"
+        : tone === "warning"
+          ? "bg-status-warningSoft text-status-warning"
+          : "bg-brand-grayLight text-slate-500";
   return (
     <Card>
-      <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">{label}</p>
-      <p className={`font-bold ${size === "lg" ? "text-4xl" : "text-2xl"} ${toneClass}`}>{value}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">{label}</p>
+          <p className={`font-bold ${size === "lg" ? "text-4xl" : "text-2xl"} ${toneClass}`}>{value}</p>
+        </div>
+        {Icon && (
+          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${chipClass}`}>
+            <Icon size={18} strokeWidth={2} />
+          </span>
+        )}
+      </div>
     </Card>
   );
 }

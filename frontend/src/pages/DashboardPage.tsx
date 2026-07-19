@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Landmark, DollarSign, FileClock, FileWarning, Banknote, CheckCircle2, Clock } from "lucide-react";
 import { api } from "../lib/apiClient";
 import { Card, Metric, money, Badge, formatDateOnly } from "../components/ui";
 
@@ -34,19 +35,35 @@ export function DashboardPage() {
       {/* Las dos cifras que realmente se pueden usar hoy — con más peso visual
           que el resto, para que no compitan con conteos secundarios. */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Metric label="Saldo TD Bank" value={money(data.bankBalance)} tone="success" size="lg" />
-        <Metric label="Venta del Día (disponible para usar)" value={money(data.cashAccounts.DAILY_SALES)} tone="success" size="lg" />
+        <Metric label="Saldo TD Bank" value={money(data.bankBalance)} tone="success" size="lg" icon={Landmark} />
+        <Metric
+          label="Venta del Día (disponible para usar)"
+          value={money(data.cashAccounts.DAILY_SALES)}
+          tone="success"
+          size="lg"
+          icon={DollarSign}
+        />
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Metric label="Facturas pendientes" value={`${data.pendingInvoices.count} · ${money(data.pendingInvoices.total)}`} />
-        <Metric label="Facturas vencidas" value={`${data.overdueInvoices.count} · ${money(data.overdueInvoices.total)}`} tone="danger" />
-        <Metric label="Cheques emitidos" value={String(data.checksIssued)} />
-        <Metric label="Cheques cobrados" value={String(data.checksCleared)} tone="success" />
+        <Metric
+          label="Facturas pendientes"
+          value={`${data.pendingInvoices.count} · ${money(data.pendingInvoices.total)}`}
+          icon={FileClock}
+        />
+        <Metric
+          label="Facturas vencidas"
+          value={`${data.overdueInvoices.count} · ${money(data.overdueInvoices.total)}`}
+          tone="danger"
+          icon={FileWarning}
+        />
+        <Metric label="Cheques emitidos" value={String(data.checksIssued)} icon={Banknote} />
+        <Metric label="Cheques cobrados" value={String(data.checksCleared)} tone="success" icon={CheckCircle2} />
         <Metric
           label="Cheques sin cobrar"
           value={`${data.checksPending.count} · ${money(data.checksPending.total)}`}
           tone="warning"
+          icon={Clock}
         />
       </div>
 
@@ -78,14 +95,21 @@ export function DashboardPage() {
         <Card title="Alertas financieras importantes">
           {data.alerts.length === 0 && <p className="text-sm text-slate-400">Sin alertas abiertas.</p>}
           <ul className="space-y-2">
-            {data.alerts.slice(0, 6).map((alert) => (
-              <li key={alert.id} className="flex items-center justify-between text-sm">
-                <span>{alert.message}</span>
-                <Badge tone={alert.severity === "CRITICAL" ? "danger" : alert.severity === "WARNING" ? "warning" : "info"}>
-                  {alert.severity}
-                </Badge>
-              </li>
-            ))}
+            {data.alerts.slice(0, 6).map((alert) => {
+              const tone = alert.severity === "CRITICAL" ? "danger" : alert.severity === "WARNING" ? "warning" : "info";
+              const rowClass =
+                tone === "danger"
+                  ? "bg-status-dangerSoft"
+                  : tone === "warning"
+                    ? "bg-status-warningSoft"
+                    : "bg-status-infoSoft";
+              return (
+                <li key={alert.id} className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm ${rowClass}`}>
+                  <span className="text-brand-text">{alert.message}</span>
+                  <Badge tone={tone}>{alert.severity}</Badge>
+                </li>
+              );
+            })}
           </ul>
         </Card>
       </div>
