@@ -59,7 +59,7 @@ export function AlertsPage() {
                   <button
                     onClick={() => resolveShortfall.mutate({ id: alert.id, takeFromSavings: true })}
                     disabled={resolveShortfall.isPending}
-                    className="text-xs text-white bg-pachos-green rounded-md px-3 py-1.5 disabled:opacity-50"
+                    className="text-xs text-white bg-brand-orange hover:bg-brand-orangeDark rounded-md px-3 py-1.5 disabled:opacity-50"
                   >
                     Sí, tomar de Ahorro
                   </button>
@@ -74,7 +74,7 @@ export function AlertsPage() {
               ) : (
                 <button
                   onClick={() => resolve.mutate(alert.id)}
-                  className="text-xs text-pachos-green underline shrink-0"
+                  className="text-xs text-slate-600 underline shrink-0"
                 >
                   Marcar resuelta
                 </button>

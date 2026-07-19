@@ -148,7 +148,7 @@ export function CashFlowPage() {
             <button
               onClick={() => deductRent.mutate()}
               disabled={deductRent.isPending}
-              className="border border-pachos-green text-pachos-green text-sm rounded-md px-4 py-2 disabled:opacity-50"
+              className="border border-slate-300 text-slate-700 text-sm rounded-md px-4 py-2 disabled:opacity-50"
             >
               {deductRent.isPending
                 ? "Descontando..."
@@ -156,7 +156,7 @@ export function CashFlowPage() {
             </button>
             <button
               onClick={() => setShowSaleForm(true)}
-              className="bg-pachos-green text-white text-sm rounded-md px-4 py-2"
+              className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2"
             >
               + Venta en Efectivo del Día
             </button>
@@ -168,7 +168,7 @@ export function CashFlowPage() {
         <p className="text-sm text-red-600">{rentError}</p>
       )}
       {canRegisterSale && rentSuccess && (
-        <p className="text-sm text-pachos-green">Renta separada correctamente ✓</p>
+        <p className="text-sm text-status-success">Renta separada correctamente ✓</p>
       )}
       {canRegisterSale && cashRegister.data && (
         <p className="text-xs text-slate-400 -mt-2">
@@ -194,7 +194,7 @@ export function CashFlowPage() {
         <Metric label="Disponible hoy" value={money(summary.data?.availableToday ?? 0)} tone="success" />
         {summary.data &&
           Object.entries(summary.data.projections).map(([days, value]) => (
-            <Metric key={days} label={`Proyección ${days} días`} value={money(value)} tone={value < 0 ? "danger" : "default"} />
+            <Metric key={days} label={`Proyección ${days} días`} value={money(value)} tone={value < 0 ? "danger" : "success"} />
           ))}
       </div>
 
@@ -237,7 +237,7 @@ export function CashFlowPage() {
                 <td>
                   {t.description} <span className="text-slate-400 text-xs">({TYPE_LABEL[t.type] ?? t.type})</span>
                 </td>
-                <td className={`text-right ${t.amount < 0 ? "text-red-600" : "text-pachos-green"}`}>
+                <td className={`text-right ${t.amount < 0 ? "text-status-danger" : "text-status-success"}`}>
                   {t.amount < 0 ? "-" : "+"}
                   {money(Math.abs(t.amount))}
                 </td>
@@ -296,7 +296,7 @@ export function CashFlowPage() {
               <button
                 type="submit"
                 disabled={registerSale.isPending}
-                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {registerSale.isPending ? "Guardando..." : "Registrar venta"}
               </button>

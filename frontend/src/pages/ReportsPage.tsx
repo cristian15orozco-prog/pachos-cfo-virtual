@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/apiClient";
-import { Card, money } from "../components/ui";
+import { Card, Metric, money } from "../components/ui";
 
 interface DailyReport {
   date: string;
@@ -28,13 +28,23 @@ export function ReportsPage() {
       <h2 className="text-2xl font-bold">Reporte Diario del Dueño</h2>
       <p className="text-sm text-slate-500 -mt-3">{new Date(data.date).toLocaleDateString()}</p>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <Card title="Dinero disponible"><p className="text-xl font-bold">{money(data.availableToday)}</p></Card>
-        <Card title="Depósitos de hoy"><p className="text-xl font-bold">{money(data.depositsToday)}</p></Card>
-        <Card title="Pagos realizados"><p className="text-xl font-bold">{money(data.paymentsToday)}</p></Card>
-        <Card title="Cheques cobrados hoy"><p className="text-xl font-bold">{data.checksClearedToday}</p></Card>
-        <Card title="Cheques pendientes"><p className="text-xl font-bold">{data.checksPending.count} · {money(data.checksPending.total)}</p></Card>
-        <Card title="Facturas vencidas"><p className="text-xl font-bold text-red-600">{data.overdueInvoices.count} · {money(data.overdueInvoices.total)}</p></Card>
+      <Metric label="Dinero disponible" value={money(data.availableToday)} tone="success" size="lg" />
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Metric label="Depósitos de hoy" value={money(data.depositsToday)} tone="success" />
+        <Metric label="Pagos realizados" value={money(data.paymentsToday)} />
+        <Metric label="Cheques cobrados hoy" value={String(data.checksClearedToday)} tone="success" />
+        <Metric
+          label="Cheques pendientes"
+          value={`${data.checksPending.count} · ${money(data.checksPending.total)}`}
+          tone="warning"
+        />
+        <Metric
+          label="Facturas vencidas"
+          value={`${data.overdueInvoices.count} · ${money(data.overdueInvoices.total)}`}
+          tone="danger"
+        />
+        <Metric label="Facturas por vencer pronto" value={String(data.dueSoonInvoices.count)} tone="warning" />
       </div>
 
       <Card title="Riesgos financieros">

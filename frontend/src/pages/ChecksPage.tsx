@@ -162,7 +162,7 @@ export function ChecksPage() {
         {canCreate && (
           <button
             onClick={() => setShowForm(true)}
-            className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 shrink-0"
+            className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 shrink-0"
           >
             + Nuevo Cheque
           </button>
@@ -206,7 +206,7 @@ export function ChecksPage() {
                       <button
                         onClick={() => markCleared.mutate(c.id)}
                         disabled={markCleared.isPending}
-                        className="text-xs text-pachos-green underline disabled:opacity-50"
+                        className="text-xs text-slate-600 underline disabled:opacity-50"
                       >
                         Marcar como cobrado
                       </button>
@@ -319,7 +319,7 @@ export function ChecksPage() {
               <button
                 type="submit"
                 disabled={createCheck.isPending}
-                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {createCheck.isPending ? "Guardando..." : "Guardar cheque"}
               </button>
@@ -419,7 +419,7 @@ export function ChecksPage() {
               <button
                 type="submit"
                 disabled={updateCheck.isPending}
-                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {updateCheck.isPending ? "Guardando..." : "Guardar cambios"}
               </button>

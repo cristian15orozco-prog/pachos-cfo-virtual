@@ -155,7 +155,7 @@ export function ReceiptsPage() {
               onChange={(e) => setNotes(e.target.value)}
             />
           </div>
-          <label className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 cursor-pointer disabled:opacity-50">
+          <label className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 cursor-pointer disabled:opacity-50">
             {upload.isPending ? "Subiendo..." : "📷 Tomar / Subir Foto"}
             <input
               ref={fileInputRef}
@@ -168,7 +168,7 @@ export function ReceiptsPage() {
             />
           </label>
         </div>
-        {uploadSuccess && <p className="text-sm text-pachos-green mt-2">Foto subida correctamente.</p>}
+        {uploadSuccess && <p className="text-sm text-status-success mt-2">Foto subida correctamente.</p>}
         {uploadError && <p className="text-sm text-red-600 mt-2">{uploadError}</p>}
       </Card>
 
@@ -212,7 +212,7 @@ export function ReceiptsPage() {
                   <button
                     disabled={!linkChoice[att.id] || linkAttachment.isPending}
                     onClick={() => linkAttachment.mutate({ id: att.id, invoiceId: linkChoice[att.id] })}
-                    className="text-sm px-3 py-1 rounded-md bg-pachos-green text-white disabled:opacity-50"
+                    className="text-sm px-3 py-1 rounded-md bg-slate-700 text-white disabled:opacity-50"
                   >
                     Vincular
                   </button>

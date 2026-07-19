@@ -155,7 +155,7 @@ export function ProvidersPage() {
         {canCreate && (
           <button
             onClick={() => setShowForm(true)}
-            className="bg-pachos-green text-white text-sm rounded-md px-4 py-2"
+            className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2"
           >
             + Nuevo Proveedor
           </button>
@@ -276,7 +276,7 @@ export function ProvidersPage() {
               <button
                 type="submit"
                 disabled={createProvider.isPending}
-                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {createProvider.isPending ? "Guardando..." : "Guardar proveedor"}
               </button>
@@ -403,7 +403,7 @@ export function ProvidersPage() {
               <button
                 type="submit"
                 disabled={updateProvider.isPending}
-                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {updateProvider.isPending ? "Guardando..." : "Guardar cambios"}
               </button>

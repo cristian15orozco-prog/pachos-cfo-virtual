@@ -292,7 +292,7 @@ export function SettingsPage() {
           <button
             type="submit"
             disabled={saveSettings.isPending}
-            className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50 h-[38px]"
+            className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50 h-[38px]"
           >
             {saveSettings.isPending ? "Guardando..." : "Guardar montos"}
           </button>
@@ -369,7 +369,7 @@ export function SettingsPage() {
           <button
             type="submit"
             disabled={adjustCash.isPending}
-            className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50 h-[38px]"
+            className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50 h-[38px]"
           >
             {adjustCash.isPending ? "Guardando..." : "Ajustar"}
           </button>
@@ -492,7 +492,7 @@ export function SettingsPage() {
         <div className="flex justify-end mb-3">
           <button
             onClick={() => setShowNewUserForm(true)}
-            className="bg-pachos-green text-white text-sm rounded-md px-4 py-2"
+            className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2"
           >
             + Nuevo Usuario
           </button>
@@ -530,7 +530,7 @@ export function SettingsPage() {
                   )}
                 </td>
                 <td className="text-right">
-                  <button onClick={() => openEditModal(u)} className="text-xs text-pachos-green underline">
+                  <button onClick={() => openEditModal(u)} className="text-xs text-slate-600 underline">
                     Editar
                   </button>
                 </td>
@@ -597,7 +597,7 @@ export function SettingsPage() {
               <button
                 type="submit"
                 disabled={createUser.isPending}
-                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {createUser.isPending ? "Guardando..." : "Crear usuario"}
               </button>
@@ -663,7 +663,7 @@ export function SettingsPage() {
               <button
                 type="submit"
                 disabled={updateUser.isPending}
-                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {updateUser.isPending ? "Guardando..." : "Guardar cambios"}
               </button>

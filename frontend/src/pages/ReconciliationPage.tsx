@@ -36,7 +36,7 @@ export function ReconciliationPage() {
         <button
           onClick={() => run.mutate()}
           disabled={run.isPending}
-          className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+          className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
         >
           {run.isPending ? "Ejecutando..." : "Ejecutar conciliación"}
         </button>
@@ -68,7 +68,9 @@ export function ReconciliationPage() {
                   {r.bankTransaction.description} ({money(r.bankTransaction.amount)})
                 </td>
                 <td>{r.matchedType}</td>
-                <td>{money(r.amountDifference)}</td>
+                <td className={Number(r.amountDifference) !== 0 ? "text-status-danger font-medium" : "text-status-success"}>
+                  {money(r.amountDifference)}
+                </td>
                 <td>
                   <Badge tone={STATUS_TONE[r.status]}>{r.status}</Badge>
                 </td>

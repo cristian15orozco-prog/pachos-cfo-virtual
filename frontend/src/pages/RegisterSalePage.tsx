@@ -104,11 +104,11 @@ export function RegisterSalePage() {
             />
           </FormField>
           {cardError && <p className="text-sm text-red-600 mb-3">{cardError}</p>}
-          {cardSuccess && <p className="text-sm text-pachos-green mb-3">Venta en tarjeta registrada ✓</p>}
+          {cardSuccess && <p className="text-sm text-status-success mb-3">Venta en tarjeta registrada ✓</p>}
           <button
             type="submit"
             disabled={registerCardSale.isPending}
-            className="w-full bg-pachos-green text-white text-sm rounded-md px-4 py-3 font-medium disabled:opacity-50"
+            className="w-full bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-3 font-medium disabled:opacity-50"
           >
             {registerCardSale.isPending ? "Guardando..." : "Agregar venta en tarjeta"}
           </button>
@@ -137,11 +137,11 @@ export function RegisterSalePage() {
             />
           </FormField>
           {cashError && <p className="text-sm text-red-600 mb-3">{cashError}</p>}
-          {cashSuccess && <p className="text-sm text-pachos-green mb-3">Venta en efectivo registrada ✓</p>}
+          {cashSuccess && <p className="text-sm text-status-success mb-3">Venta en efectivo registrada ✓</p>}
           <button
             type="submit"
             disabled={registerCashSale.isPending}
-            className="w-full bg-pachos-green text-white text-sm rounded-md px-4 py-3 font-medium disabled:opacity-50"
+            className="w-full bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-3 font-medium disabled:opacity-50"
           >
             {registerCashSale.isPending ? "Guardando..." : "Agregar venta en efectivo"}
           </button>

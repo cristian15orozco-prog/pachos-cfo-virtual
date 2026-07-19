@@ -314,12 +314,12 @@ export function RegisterInvoicePage() {
 
           {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
           {warning && <p className="text-sm text-amber-600 mt-2">{warning}</p>}
-          {success && <p className="text-sm text-pachos-green mt-2">Factura registrada correctamente.</p>}
+          {success && <p className="text-sm text-status-success mt-2">Factura registrada correctamente.</p>}
 
           <button
             type="submit"
             disabled={submitAll.isPending}
-            className="w-full mt-4 bg-pachos-green text-white text-sm rounded-md px-4 py-3 font-medium disabled:opacity-50"
+            className="w-full mt-4 bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-3 font-medium disabled:opacity-50"
           >
             {submitAll.isPending ? "Guardando..." : "Guardar Factura"}
           </button>
