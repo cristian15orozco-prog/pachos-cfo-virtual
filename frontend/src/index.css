@@ -5,3 +5,9 @@
 body {
   @apply bg-slate-50 text-slate-900;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin {
+    animation: none;
+  }
+}
