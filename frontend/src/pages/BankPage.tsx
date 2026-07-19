@@ -156,7 +156,7 @@ export function BankPage() {
           {canManage && isManual && (
             <button
               onClick={() => setShowManualForm(true)}
-              className="border border-pachos-green text-pachos-green text-sm rounded-md px-4 py-2"
+              className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2"
             >
               💰 Actualizar Saldo Manual
             </button>
@@ -165,7 +165,7 @@ export function BankPage() {
             <button
               onClick={() => createLinkToken.mutate()}
               disabled={createLinkToken.isPending || exchangeToken.isPending}
-              className="border border-pachos-green text-pachos-green text-sm rounded-md px-4 py-2 disabled:opacity-50"
+              className="border border-slate-300 text-slate-700 text-sm rounded-md px-4 py-2 disabled:opacity-50"
             >
               {createLinkToken.isPending || exchangeToken.isPending ? "Conectando..." : "Conectar Banco"}
             </button>
@@ -173,7 +173,11 @@ export function BankPage() {
           <button
             onClick={() => sync.mutate()}
             disabled={sync.isPending}
-            className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+            className={
+              isManual
+                ? "border border-slate-300 text-slate-700 text-sm rounded-md px-4 py-2 disabled:opacity-50"
+                : "bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+            }
           >
             {sync.isPending ? "Sincronizando..." : "Sincronizar ahora"}
           </button>
@@ -327,7 +331,7 @@ export function BankPage() {
               <button
                 type="submit"
                 disabled={adjustManualBalance.isPending}
-                className="bg-pachos-green text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+                className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
               >
                 {adjustManualBalance.isPending ? "Guardando..." : "Registrar"}
               </button>
