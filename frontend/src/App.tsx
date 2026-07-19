@@ -14,11 +14,12 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { ReceiptsPage } from "./pages/ReceiptsPage";
 import { RegisterInvoicePage } from "./pages/RegisterInvoicePage";
 import { RegisterSalePage } from "./pages/RegisterSalePage";
+import { CashierHomePage } from "./pages/CashierHomePage";
 import { useAuth } from "./hooks/useAuth";
 
 function HomeRedirect() {
   const { user } = useAuth();
-  const defaultPath = user?.role === "EMPLOYEE" ? "/registrar-factura" : "/dashboard";
+  const defaultPath = user?.role === "EMPLOYEE" ? "/inicio" : "/dashboard";
   return <Navigate to={defaultPath} replace />;
 }
 
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<AppLayout />}>
           <Route path="/" element={<HomeRedirect />} />
+          <Route path="/inicio" element={<CashierHomePage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/facturas" element={<InvoicesPage />} />
           <Route path="/comprobantes" element={<ReceiptsPage />} />
