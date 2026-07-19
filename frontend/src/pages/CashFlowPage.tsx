@@ -226,7 +226,9 @@ export function CashFlowPage() {
           <tbody>
             {timeline.data?.map((t) => (
               <tr key={`${t.source}-${t.id}`} className="border-b border-slate-50">
-                <td className="py-2">{formatDateOnly(t.date)}</td>
+                <td className="py-2">
+                  {t.source === "CASH" ? new Date(t.date).toLocaleDateString() : formatDateOnly(t.date)}
+                </td>
                 <td>
                   <Badge tone={t.source === "CASH" ? "success" : "default"}>
                     {t.source === "CASH" ? `Efectivo${t.account ? ` · ${ACCOUNT_LABEL[t.account]}` : ""}` : "Banco"}
