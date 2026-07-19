@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Scale } from "lucide-react";
 import { api } from "../lib/apiClient";
-import { Card, Badge, money, formatDateOnly } from "../components/ui";
+import { Card, Badge, money, formatDateOnly, PageHeading } from "../components/ui";
 
 interface Reconciliation {
   id: string;
@@ -31,16 +32,19 @@ export function ReconciliationPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Conciliación Bancaria</h2>
-        <button
-          onClick={() => run.mutate()}
-          disabled={run.isPending}
-          className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
-        >
-          {run.isPending ? "Ejecutando..." : "Ejecutar conciliación"}
-        </button>
-      </div>
+      <PageHeading
+        icon={Scale}
+        title="Conciliación Bancaria"
+        action={
+          <button
+            onClick={() => run.mutate()}
+            disabled={run.isPending}
+            className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+          >
+            {run.isPending ? "Ejecutando..." : "Ejecutar conciliación"}
+          </button>
+        }
+      />
 
       <p className="text-xs text-slate-400 -mt-2">
         Esto compara automáticamente tus transacciones bancarias (vía Plaid) contra cheques y facturas — mientras no

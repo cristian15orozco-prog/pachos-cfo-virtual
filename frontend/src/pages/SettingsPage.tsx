@@ -1,7 +1,8 @@
 import { useState, useEffect, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Settings as SettingsIcon, Pencil } from "lucide-react";
 import { api } from "../lib/apiClient";
-import { Card, Badge, money } from "../components/ui";
+import { Card, Badge, money, PageHeading } from "../components/ui";
 import { Modal, FormField, inputClass } from "../components/Modal";
 
 interface User {
@@ -255,7 +256,7 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Configuración</h2>
+      <PageHeading icon={SettingsIcon} title="Configuración" />
 
       <Card title="Montos automáticos">
         <p className="text-xs text-slate-400 mb-3">
@@ -530,8 +531,11 @@ export function SettingsPage() {
                   )}
                 </td>
                 <td className="text-right">
-                  <button onClick={() => openEditModal(u)} className="text-xs text-slate-600 underline">
-                    Editar
+                  <button
+                    onClick={() => openEditModal(u)}
+                    className="inline-flex items-center gap-1 text-xs text-slate-600 hover:text-slate-800"
+                  >
+                    <Pencil size={13} strokeWidth={2} /> Editar
                   </button>
                 </td>
               </tr>

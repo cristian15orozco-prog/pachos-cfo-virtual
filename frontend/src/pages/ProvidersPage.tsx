@@ -1,7 +1,8 @@
 import { useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Truck, Pencil, File as FileIcon } from "lucide-react";
 import { api } from "../lib/apiClient";
-import { Card, Badge, money, formatDateOnly } from "../components/ui";
+import { Card, Badge, money, formatDateOnly, PageHeading } from "../components/ui";
 import { Modal, FormField, inputClass } from "../components/Modal";
 import { useAuth } from "../hooks/useAuth";
 
@@ -150,17 +151,20 @@ export function ProvidersPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Proveedores</h2>
-        {canCreate && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2"
-          >
-            + Nuevo Proveedor
-          </button>
-        )}
-      </div>
+      <PageHeading
+        icon={Truck}
+        title="Proveedores"
+        action={
+          canCreate && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2"
+            >
+              + Nuevo Proveedor
+            </button>
+          )
+        }
+      />
       <Card>
         {isLoading && <p className="text-slate-400 text-sm">Cargando...</p>}
         {!isLoading && data?.length === 0 && (
@@ -196,9 +200,9 @@ export function ProvidersPage() {
                         e.stopPropagation();
                         openEditModal(p);
                       }}
-                      className="text-xs text-slate-500 underline"
+                      className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
                     >
-                      ✏️ Editar
+                      <Pencil size={13} strokeWidth={2} /> Editar
                     </button>
                   </td>
                 )}
@@ -320,9 +324,9 @@ export function ProvidersPage() {
                             <button
                               key={a.id}
                               onClick={() => viewInvoicePdf(a.id)}
-                              className="text-xs text-slate-500 underline"
+                              className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
                             >
-                              📄 Ver PDF
+                              <FileIcon size={13} strokeWidth={2} /> Ver PDF
                             </button>
                           ))}
                       </td>

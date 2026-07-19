@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Bell } from "lucide-react";
 import { api } from "../lib/apiClient";
-import { Card, Badge } from "../components/ui";
+import { Card, Badge, PageHeading } from "../components/ui";
 
 interface Alert {
   id: string;
@@ -43,7 +44,7 @@ export function AlertsPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Alertas Inteligentes</h2>
+      <PageHeading icon={Bell} title="Alertas Inteligentes" />
       <Card>
         {isLoading && <p className="text-slate-400 text-sm">Cargando...</p>}
         {data?.length === 0 && <p className="text-sm text-slate-400">No hay alertas abiertas. Todo en orden.</p>}

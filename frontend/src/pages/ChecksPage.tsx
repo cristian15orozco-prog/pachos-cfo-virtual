@@ -1,7 +1,8 @@
 import { useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Banknote, Pencil } from "lucide-react";
 import { api } from "../lib/apiClient";
-import { Card, Badge, money, formatDateOnly } from "../components/ui";
+import { Card, Badge, money, formatDateOnly, PageHeading } from "../components/ui";
 import { Modal, FormField, inputClass } from "../components/Modal";
 import { useAuth } from "../hooks/useAuth";
 
@@ -151,23 +152,21 @@ export function ChecksPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Cheques</h2>
-          <p className="text-sm text-slate-500">
-            Registro de cheques emitidos manualmente. El sistema no imprime ni emite cheques. Mientras no haya banco
-            conectado, marca aquí a mano cuándo se cobró uno — eso también descuenta el saldo manual del banco.
-          </p>
-        </div>
-        {canCreate && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 shrink-0"
-          >
-            + Nuevo Cheque
-          </button>
-        )}
-      </div>
+      <PageHeading
+        icon={Banknote}
+        title="Cheques"
+        subtitle="Registro de cheques emitidos manualmente. El sistema no imprime ni emite cheques. Mientras no haya banco conectado, marca aquí a mano cuándo se cobró uno — eso también descuenta el saldo manual del banco."
+        action={
+          canCreate && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 shrink-0"
+            >
+              + Nuevo Cheque
+            </button>
+          )
+        }
+      />
 
       <Card>
         {isLoading && <p className="text-slate-400 text-sm">Cargando...</p>}
@@ -212,8 +211,11 @@ export function ChecksPage() {
                       </button>
                     )}
                     {isOwner && (
-                      <button onClick={() => openEditModal(c)} className="text-xs text-slate-500 underline">
-                        ✏️ Editar
+                      <button
+                        onClick={() => openEditModal(c)}
+                        className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+                      >
+                        <Pencil size={13} strokeWidth={2} /> Editar
                       </button>
                     )}
                   </td>

@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { Camera } from "lucide-react";
 
 interface Props {
   pages: File[];
@@ -23,9 +24,10 @@ export function InvoicePhotoPicker({ pages, onChange, disabled }: Props) {
   return (
     <div>
       <label
-        className={`inline-block border border-slate-300 text-slate-700 text-sm rounded-md px-4 py-2 ${disabled ? "opacity-50" : "cursor-pointer"}`}
+        className={`inline-flex items-center gap-1.5 border border-slate-300 text-slate-700 text-sm rounded-md px-4 py-2 ${disabled ? "opacity-50" : "cursor-pointer"}`}
       >
-        {pages.length > 0 ? `📷 Agregar otra página (${pages.length})` : "📷 Tomar / Subir Foto"}
+        <Camera size={15} strokeWidth={2} />
+        {pages.length > 0 ? `Agregar otra página (${pages.length})` : "Tomar / Subir Foto"}
         <input
           ref={fileInputRef}
           type="file"

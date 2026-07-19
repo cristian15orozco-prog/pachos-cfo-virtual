@@ -54,6 +54,33 @@ export function Metric({
   );
 }
 
+export function PageHeading({
+  icon: Icon,
+  title,
+  subtitle,
+  action,
+}: {
+  icon: ComponentType<IconProps>;
+  title: string;
+  subtitle?: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-greenDark text-white">
+          <Icon size={20} strokeWidth={2} />
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-2xl font-bold text-slate-900 truncate">{title}</h2>
+          {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+        </div>
+      </div>
+      {action && <div className="shrink-0">{action}</div>}
+    </div>
+  );
+}
+
 export function money(value: number | string): string {
   const n = typeof value === "string" ? Number(value) : value;
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" });

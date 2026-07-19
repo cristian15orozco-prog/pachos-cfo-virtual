@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Landmark, DollarSign, FileClock, FileWarning, Banknote, CheckCircle2, Clock } from "lucide-react";
+import { LayoutDashboard, Landmark, DollarSign, FileClock, FileWarning, Banknote, CheckCircle2, Clock } from "lucide-react";
 import { api } from "../lib/apiClient";
-import { Card, Metric, money, Badge, formatDateOnly } from "../components/ui";
+import { Card, Metric, money, Badge, formatDateOnly, PageHeading } from "../components/ui";
 
 interface DashboardData {
   bankBalance: number;
@@ -27,10 +27,11 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">Dashboard del Dueño</h2>
-        <p className="text-slate-500 text-sm">Pachos Supermarket — resumen financiero en tiempo real</p>
-      </div>
+      <PageHeading
+        icon={LayoutDashboard}
+        title="Dashboard del Dueño"
+        subtitle="Pachos Supermarket — resumen financiero en tiempo real"
+      />
 
       {/* Las dos cifras que realmente se pueden usar hoy — con más peso visual
           que el resto, para que no compitan con conteos secundarios. */}

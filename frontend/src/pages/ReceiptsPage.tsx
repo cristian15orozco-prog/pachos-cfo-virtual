@@ -1,7 +1,8 @@
 import { useRef, useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Camera, Link2 } from "lucide-react";
 import { api } from "../lib/apiClient";
-import { Card, Badge } from "../components/ui";
+import { Card, Badge, PageHeading } from "../components/ui";
 import { useAuth } from "../hooks/useAuth";
 
 type PaymentHint = "CASH" | "CHECK" | "UNPAID";
@@ -125,7 +126,7 @@ export function ReceiptsPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Comprobantes</h2>
+      <PageHeading icon={Camera} title="Comprobantes" />
 
       <Card title="Subir foto de una factura recibida">
         <p className="text-sm text-slate-500 mb-3">
@@ -155,8 +156,9 @@ export function ReceiptsPage() {
               onChange={(e) => setNotes(e.target.value)}
             />
           </div>
-          <label className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 cursor-pointer disabled:opacity-50">
-            {upload.isPending ? "Subiendo..." : "📷 Tomar / Subir Foto"}
+          <label className="inline-flex items-center gap-1.5 bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 cursor-pointer disabled:opacity-50">
+            <Camera size={15} strokeWidth={2} />
+            {upload.isPending ? "Subiendo..." : "Tomar / Subir Foto"}
             <input
               ref={fileInputRef}
               type="file"
@@ -212,9 +214,9 @@ export function ReceiptsPage() {
                   <button
                     disabled={!linkChoice[att.id] || linkAttachment.isPending}
                     onClick={() => linkAttachment.mutate({ id: att.id, invoiceId: linkChoice[att.id] })}
-                    className="text-sm px-3 py-1 rounded-md bg-slate-700 text-white disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-md bg-slate-700 text-white disabled:opacity-50"
                   >
-                    Vincular
+                    <Link2 size={14} strokeWidth={2} /> Vincular
                   </button>
                   <button
                     onClick={() => discardAttachment.mutate(att.id)}

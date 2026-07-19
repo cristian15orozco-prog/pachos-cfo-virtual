@@ -1,8 +1,9 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePlaidLink } from "react-plaid-link";
+import { Landmark, Wallet } from "lucide-react";
 import { api } from "../lib/apiClient";
-import { Card, Metric, Badge, money, formatDateOnly } from "../components/ui";
+import { Card, Metric, Badge, money, formatDateOnly, PageHeading } from "../components/ui";
 import { Modal, FormField, inputClass } from "../components/Modal";
 import { useAuth } from "../hooks/useAuth";
 
@@ -144,45 +145,48 @@ export function BankPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Banco — TD Bank</h2>
-          <p className="text-sm text-slate-500">
-            Conexión de <strong>solo lectura</strong> vía Plaid. El sistema nunca guarda tu usuario/contraseña
-            del banco y nunca puede mover dinero.
-          </p>
-        </div>
-        <div className="flex gap-2 shrink-0">
-          {canManage && isManual && (
+      <PageHeading
+        icon={Landmark}
+        title="Banco — TD Bank"
+        subtitle={
+          <>
+            Conexión de <strong>solo lectura</strong> vía Plaid. El sistema nunca guarda tu usuario/contraseña del
+            banco y nunca puede mover dinero.
+          </>
+        }
+        action={
+          <div className="flex gap-2 shrink-0">
+            {canManage && isManual && (
+              <button
+                onClick={() => setShowManualForm(true)}
+                className="inline-flex items-center gap-1.5 bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2"
+              >
+                <Wallet size={15} strokeWidth={2} /> Actualizar Saldo Manual
+              </button>
+            )}
+            {isOwner && (
+              <button
+                onClick={() => createLinkToken.mutate()}
+                disabled={createLinkToken.isPending || exchangeToken.isPending}
+                className="border border-slate-300 text-slate-700 text-sm rounded-md px-4 py-2 disabled:opacity-50"
+              >
+                {createLinkToken.isPending || exchangeToken.isPending ? "Conectando..." : "Conectar Banco"}
+              </button>
+            )}
             <button
-              onClick={() => setShowManualForm(true)}
-              className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2"
+              onClick={() => sync.mutate()}
+              disabled={sync.isPending}
+              className={
+                isManual
+                  ? "border border-slate-300 text-slate-700 text-sm rounded-md px-4 py-2 disabled:opacity-50"
+                  : "bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
+              }
             >
-              💰 Actualizar Saldo Manual
+              {sync.isPending ? "Sincronizando..." : "Sincronizar ahora"}
             </button>
-          )}
-          {isOwner && (
-            <button
-              onClick={() => createLinkToken.mutate()}
-              disabled={createLinkToken.isPending || exchangeToken.isPending}
-              className="border border-slate-300 text-slate-700 text-sm rounded-md px-4 py-2 disabled:opacity-50"
-            >
-              {createLinkToken.isPending || exchangeToken.isPending ? "Conectando..." : "Conectar Banco"}
-            </button>
-          )}
-          <button
-            onClick={() => sync.mutate()}
-            disabled={sync.isPending}
-            className={
-              isManual
-                ? "border border-slate-300 text-slate-700 text-sm rounded-md px-4 py-2 disabled:opacity-50"
-                : "bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 disabled:opacity-50"
-            }
-          >
-            {sync.isPending ? "Sincronizando..." : "Sincronizar ahora"}
-          </button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {connectError && (
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-md px-4 py-3">

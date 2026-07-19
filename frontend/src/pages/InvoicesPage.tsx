@@ -1,7 +1,8 @@
 import { useMemo, useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { FileText, Camera, Pencil, File as FileIcon, Search } from "lucide-react";
 import { api } from "../lib/apiClient";
-import { Card, Badge, money, formatDateOnly, todayLocalDateString } from "../components/ui";
+import { Card, Badge, money, formatDateOnly, todayLocalDateString, PageHeading } from "../components/ui";
 import { Modal, FormField, inputClass } from "../components/Modal";
 import { InvoicePhotoPicker } from "../components/InvoicePhotoPicker";
 import { attachPhotosToInvoice } from "../lib/attachInvoicePhotos";
@@ -322,26 +323,26 @@ export function InvoicesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Facturas de Proveedores</h2>
-        {canCreate && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 shrink-0"
-          >
-            + Nueva Factura
-          </button>
-        )}
-      </div>
+      <PageHeading
+        icon={FileText}
+        title="Facturas de Proveedores"
+        action={
+          canCreate && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2 shrink-0"
+            >
+              + Nueva Factura
+            </button>
+          )
+        }
+      />
 
       {!isLoading && !!data?.length && (
         <div className="flex flex-wrap gap-3">
           <div className="relative flex-1 min-w-[220px]">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" />
-                <path d="M21 21l-4.3-4.3" />
-              </svg>
+              <Search size={16} strokeWidth={2} />
             </span>
             <input
               type="text"
@@ -407,12 +408,18 @@ export function InvoicesPage() {
                         Registrar Pago
                       </button>
                     )}
-                    <button onClick={() => openAttachModal(inv)} className="text-xs text-slate-500 underline">
-                      📷 Adjuntar foto
+                    <button
+                      onClick={() => openAttachModal(inv)}
+                      className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+                    >
+                      <Camera size={13} strokeWidth={2} /> Adjuntar foto
                     </button>
                     {isOwner && (
-                      <button onClick={() => openEditModal(inv)} className="text-xs text-slate-500 underline">
-                        ✏️ Editar
+                      <button
+                        onClick={() => openEditModal(inv)}
+                        className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
+                      >
+                        <Pencil size={13} strokeWidth={2} /> Editar
                       </button>
                     )}
                     {isOwner &&
@@ -422,9 +429,9 @@ export function InvoicesPage() {
                           <button
                             key={a.id}
                             onClick={() => viewInvoicePdf(a.id)}
-                            className="text-xs text-slate-500 underline"
+                            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700"
                           >
-                            📄 Ver PDF
+                            <FileIcon size={13} strokeWidth={2} /> Ver PDF
                           </button>
                         ))}
                   </td>

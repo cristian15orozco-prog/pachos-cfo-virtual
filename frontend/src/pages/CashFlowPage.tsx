@@ -1,8 +1,9 @@
 import { useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from "recharts";
+import { TrendingUp, Home, CheckCircle2 } from "lucide-react";
 import { api } from "../lib/apiClient";
-import { Card, Metric, Badge, money, formatDateOnly } from "../components/ui";
+import { Card, Metric, Badge, money, formatDateOnly, PageHeading } from "../components/ui";
 import { Modal, FormField, inputClass } from "../components/Modal";
 import { useAuth } from "../hooks/useAuth";
 
@@ -141,34 +142,40 @@ export function CashFlowPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Flujo de Caja</h2>
-        {canRegisterSale && (
-          <div className="flex gap-2 items-center shrink-0">
-            <button
-              onClick={() => deductRent.mutate()}
-              disabled={deductRent.isPending}
-              className="border border-slate-300 text-slate-700 text-sm rounded-md px-4 py-2 disabled:opacity-50"
-            >
-              {deductRent.isPending
-                ? "Descontando..."
-                : `🏠 Descontar Renta${businessSettings.data ? ` (${money(Number(businessSettings.data.dailyRentAmount))})` : ""}`}
-            </button>
-            <button
-              onClick={() => setShowSaleForm(true)}
-              className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2"
-            >
-              + Venta en Efectivo del Día
-            </button>
-          </div>
-        )}
-      </div>
+      <PageHeading
+        icon={TrendingUp}
+        title="Flujo de Caja"
+        action={
+          canRegisterSale && (
+            <div className="flex gap-2 items-center shrink-0">
+              <button
+                onClick={() => deductRent.mutate()}
+                disabled={deductRent.isPending}
+                className="inline-flex items-center gap-1.5 border border-slate-300 text-slate-700 text-sm rounded-md px-4 py-2 disabled:opacity-50"
+              >
+                <Home size={15} strokeWidth={2} />
+                {deductRent.isPending
+                  ? "Descontando..."
+                  : `Descontar Renta${businessSettings.data ? ` (${money(Number(businessSettings.data.dailyRentAmount))})` : ""}`}
+              </button>
+              <button
+                onClick={() => setShowSaleForm(true)}
+                className="bg-brand-orange hover:bg-brand-orangeDark text-white text-sm rounded-md px-4 py-2"
+              >
+                + Venta en Efectivo del Día
+              </button>
+            </div>
+          )
+        }
+      />
 
       {canRegisterSale && rentError && (
         <p className="text-sm text-red-600">{rentError}</p>
       )}
       {canRegisterSale && rentSuccess && (
-        <p className="text-sm text-status-success">Renta separada correctamente ✓</p>
+        <p className="inline-flex items-center gap-1.5 text-sm text-status-success">
+          <CheckCircle2 size={15} strokeWidth={2} /> Renta separada correctamente
+        </p>
       )}
       {canRegisterSale && cashRegister.data && (
         <p className="text-xs text-slate-400 -mt-2">

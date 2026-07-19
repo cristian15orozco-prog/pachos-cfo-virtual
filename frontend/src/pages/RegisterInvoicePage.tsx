@@ -1,7 +1,8 @@
 import { useMemo, useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { FilePlus, CheckCircle2 } from "lucide-react";
 import { api } from "../lib/apiClient";
-import { Card, todayLocalDateString } from "../components/ui";
+import { Card, todayLocalDateString, PageHeading } from "../components/ui";
 import { FormField, inputClass } from "../components/Modal";
 import { InvoicePhotoPicker } from "../components/InvoicePhotoPicker";
 import { attachPhotosToInvoice } from "../lib/attachInvoicePhotos";
@@ -130,12 +131,11 @@ export function RegisterInvoicePage() {
 
   return (
     <div className="space-y-4 max-w-2xl">
-      <div>
-        <h2 className="text-2xl font-bold">Registrar Factura</h2>
-        <p className="text-sm text-slate-500">
-          Cuando llegue una factura de un proveedor, regístrala aquí junto con cómo se pagó.
-        </p>
-      </div>
+      <PageHeading
+        icon={FilePlus}
+        title="Registrar Factura"
+        subtitle="Cuando llegue una factura de un proveedor, regístrala aquí junto con cómo se pagó."
+      />
 
       <Card>
         <form onSubmit={handleSubmit}>
@@ -314,7 +314,11 @@ export function RegisterInvoicePage() {
 
           {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
           {warning && <p className="text-sm text-amber-600 mt-2">{warning}</p>}
-          {success && <p className="text-sm text-status-success mt-2">Factura registrada correctamente.</p>}
+          {success && (
+            <p className="inline-flex items-center gap-1.5 text-sm text-status-success mt-2">
+              <CheckCircle2 size={15} strokeWidth={2} /> Factura registrada correctamente.
+            </p>
+          )}
 
           <button
             type="submit"

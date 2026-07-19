@@ -1,7 +1,8 @@
 import { useState, FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ShoppingCart, CheckCircle2 } from "lucide-react";
 import { api } from "../lib/apiClient";
-import { Card } from "../components/ui";
+import { Card, PageHeading } from "../components/ui";
 import { FormField, inputClass } from "../components/Modal";
 
 export function RegisterSalePage() {
@@ -74,13 +75,11 @@ export function RegisterSalePage() {
 
   return (
     <div className="space-y-4 max-w-xl">
-      <div>
-        <h2 className="text-2xl font-bold">Registrar Venta del Día</h2>
-        <p className="text-sm text-slate-500">
-          Agrega aquí lo vendido hoy en tarjeta y en efectivo. Solo se agrega — no se muestra ningún saldo en esta
-          pantalla.
-        </p>
-      </div>
+      <PageHeading
+        icon={ShoppingCart}
+        title="Registrar Venta del Día"
+        subtitle="Agrega aquí lo vendido hoy en tarjeta y en efectivo. Solo se agrega — no se muestra ningún saldo en esta pantalla."
+      />
 
       <Card title="Venta en tarjeta">
         <form onSubmit={handleCardSubmit}>
@@ -104,7 +103,11 @@ export function RegisterSalePage() {
             />
           </FormField>
           {cardError && <p className="text-sm text-red-600 mb-3">{cardError}</p>}
-          {cardSuccess && <p className="text-sm text-status-success mb-3">Venta en tarjeta registrada ✓</p>}
+          {cardSuccess && (
+            <p className="inline-flex items-center gap-1.5 text-sm text-status-success mb-3">
+              <CheckCircle2 size={15} strokeWidth={2} /> Venta en tarjeta registrada
+            </p>
+          )}
           <button
             type="submit"
             disabled={registerCardSale.isPending}
@@ -137,7 +140,11 @@ export function RegisterSalePage() {
             />
           </FormField>
           {cashError && <p className="text-sm text-red-600 mb-3">{cashError}</p>}
-          {cashSuccess && <p className="text-sm text-status-success mb-3">Venta en efectivo registrada ✓</p>}
+          {cashSuccess && (
+            <p className="inline-flex items-center gap-1.5 text-sm text-status-success mb-3">
+              <CheckCircle2 size={15} strokeWidth={2} /> Venta en efectivo registrada
+            </p>
+          )}
           <button
             type="submit"
             disabled={registerCashSale.isPending}

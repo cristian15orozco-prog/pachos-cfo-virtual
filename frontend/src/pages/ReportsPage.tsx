@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
+import { BarChart3 } from "lucide-react";
 import { api } from "../lib/apiClient";
-import { Card, Metric, money } from "../components/ui";
+import { Card, Metric, money, PageHeading } from "../components/ui";
 
 interface DailyReport {
   date: string;
@@ -25,8 +26,11 @@ export function ReportsPage() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Reporte Diario del Dueño</h2>
-      <p className="text-sm text-slate-500 -mt-3">{new Date(data.date).toLocaleDateString()}</p>
+      <PageHeading
+        icon={BarChart3}
+        title="Reporte Diario del Dueño"
+        subtitle={new Date(data.date).toLocaleDateString()}
+      />
 
       <Metric label="Dinero disponible" value={money(data.availableToday)} tone="success" size="lg" />
 
