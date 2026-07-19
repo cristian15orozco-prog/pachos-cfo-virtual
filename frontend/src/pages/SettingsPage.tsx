@@ -302,8 +302,8 @@ export function SettingsPage() {
 
       <Card title="Efectivo en caja">
         <p className="text-xs text-slate-400 mb-3">
-          Total: <span className="text-lg font-bold text-pachos-green">{money(cashData?.balance ?? 0)}</span> — dividido
-          en 4 cuentas de efectivo.
+          4 cuentas separadas — solo <strong>Ventas del Día</strong> es dinero de uso libre. Renta y Pago de
+          Trabajadores ya están apartados para eso, aunque físicamente sea el mismo efectivo.
         </p>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">

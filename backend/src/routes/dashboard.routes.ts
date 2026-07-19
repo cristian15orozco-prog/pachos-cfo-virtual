@@ -3,6 +3,7 @@ import { prisma } from "../lib/prisma";
 import { requireRole } from "../middleware/requireRole";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { computeCashFlowProjection } from "../modules/cashflow/cashFlowService";
+import { getAllAccountBalances } from "../modules/cashflow/cashRegisterService";
 
 const router = Router();
 
@@ -11,9 +12,10 @@ router.get(
   "/",
   requireRole("ADMIN", "ACCOUNTANT"),
   asyncHandler(async (_req, res) => {
-    const [cashFlow, pendingInvoices, overdueInvoices, checksIssued, checksCleared, checksPendingAgg, openAlerts] =
+    const [cashFlow, cashAccounts, pendingInvoices, overdueInvoices, checksIssued, checksCleared, checksPendingAgg, openAlerts] =
       await Promise.all([
         computeCashFlowProjection(),
+        getAllAccountBalances(),
         prisma.invoice.findMany({ where: { status: { in: ["PENDING", "PARTIAL"] } } }),
         prisma.invoice.findMany({ where: { status: "OVERDUE" } }),
         prisma.check.count({ where: { status: "ISSUED" } }),
@@ -37,6 +39,7 @@ router.get(
       data: {
         bankBalance: cashFlow.availableToday - cashFlow.cashOnHand,
         cashOnHand: cashFlow.cashOnHand,
+        cashAccounts,
         pendingInvoices: { count: pendingInvoices.length, total: pendingInvoices.reduce((s, i) => s + Number(i.total), 0) },
         overdueInvoices: { count: overdueInvoices.length, total: overdueInvoices.reduce((s, i) => s + Number(i.total), 0) },
         checksIssued,

@@ -5,6 +5,7 @@ import { Card, Metric, money, Badge, formatDateOnly } from "../components/ui";
 interface DashboardData {
   bankBalance: number;
   cashOnHand: number;
+  cashAccounts: { DAILY_SALES: number; RENT: number; PAYROLL: number; SAVINGS: number };
   pendingInvoices: { count: number; total: number };
   overdueInvoices: { count: number; total: number };
   checksIssued: number;
@@ -32,7 +33,7 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Metric label="Saldo TD Bank" value={money(data.bankBalance)} tone="success" />
-        <Metric label="Efectivo en caja" value={money(data.cashOnHand)} />
+        <Metric label="Venta del Día (disponible para usar)" value={money(data.cashAccounts.DAILY_SALES)} tone="success" />
         <Metric label="Facturas pendientes" value={`${data.pendingInvoices.count} · ${money(data.pendingInvoices.total)}`} />
         <Metric label="Facturas vencidas" value={`${data.overdueInvoices.count} · ${money(data.overdueInvoices.total)}`} tone="danger" />
         <Metric label="Cheques emitidos" value={String(data.checksIssued)} />
@@ -43,6 +44,19 @@ export function DashboardPage() {
           tone="warning"
         />
       </div>
+
+      <Card title="Efectivo en caja — 4 cuentas separadas">
+        <p className="text-xs text-slate-500 mb-3">
+          Solo <strong>Venta del Día</strong> es dinero de uso libre. Renta y Pago de Trabajadores ya están apartados
+          para eso — no cuentan como disponible aunque estén en la misma caja física.
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Metric label="Venta del Día" value={money(data.cashAccounts.DAILY_SALES)} tone="success" />
+          <Metric label="Renta (apartado)" value={money(data.cashAccounts.RENT)} tone="warning" />
+          <Metric label="Pago de Trabajadores (apartado)" value={money(data.cashAccounts.PAYROLL)} tone="warning" />
+          <Metric label="Ahorro" value={money(data.cashAccounts.SAVINGS)} />
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card title="Flujo de caja proyectado">
