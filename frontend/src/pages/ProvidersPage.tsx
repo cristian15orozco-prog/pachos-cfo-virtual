@@ -1,6 +1,6 @@
 import { useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Truck, Pencil, File as FileIcon } from "lucide-react";
+import { Truck, Pencil, File as FileIcon, Trash2 } from "lucide-react";
 import { api } from "../lib/apiClient";
 import { Card, Badge, money, formatDateOnly, PageHeading } from "../components/ui";
 import { Modal, FormField, inputClass } from "../components/Modal";
@@ -16,6 +16,7 @@ interface Provider {
   address: string | null;
   invoiceCount: number;
   pendingBalance: number;
+  isActive: boolean;
 }
 
 interface ProviderInvoice {
@@ -59,6 +60,10 @@ export function ProvidersPage() {
     queryKey: ["providers"],
     queryFn: () => api.get<{ data: Provider[] }>("/providers").then((r) => r.data),
   });
+
+  // Los proveedores eliminados quedan inactivos (no se borra su historial de
+  // facturas) y simplemente dejan de aparecer en esta lista.
+  const activeProviders = data?.filter((p) => p.isActive) ?? [];
 
   const createProvider = useMutation({
     mutationFn: () =>
@@ -126,6 +131,19 @@ export function ProvidersPage() {
     e.preventDefault();
     updateProvider.mutate();
   }
+
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deleteProvider = useMutation({
+    mutationFn: (id: string) => api.delete(`/providers/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["providers"] });
+      queryClient.invalidateQueries({ queryKey: ["providers-simple"] });
+      queryClient.invalidateQueries({ queryKey: ["providers-names"] });
+      setDeleteError(null);
+    },
+    onError: (err: Error) => setDeleteError(err.message),
+  });
+
   const [viewingProvider, setViewingProvider] = useState<Provider | null>(null);
   const [viewError, setViewError] = useState<string | null>(null);
 
@@ -170,6 +188,7 @@ export function ProvidersPage() {
         {!isLoading && data?.length === 0 && (
           <p className="text-slate-400 text-sm">Todavía no hay proveedores registrados.</p>
         )}
+        {deleteError && <p className="text-sm text-red-600 mb-3">{deleteError}</p>}
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-slate-400 border-b border-slate-100">
@@ -182,7 +201,7 @@ export function ProvidersPage() {
             </tr>
           </thead>
           <tbody>
-            {data?.map((p) => (
+            {activeProviders.map((p) => (
               <tr
                 key={p.id}
                 onClick={() => setViewingProvider(p)}
@@ -194,7 +213,7 @@ export function ProvidersPage() {
                 <td>{p.invoiceCount}</td>
                 <td className="text-right">{money(p.pendingBalance)}</td>
                 {isOwner && (
-                  <td className="text-right pl-3 whitespace-nowrap">
+                  <td className="text-right pl-3 whitespace-nowrap space-x-3">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -204,10 +223,28 @@ export function ProvidersPage() {
                     >
                       <Pencil size={13} strokeWidth={2} /> Editar
                     </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm(`¿Eliminar a "${p.name}"? Sus facturas ya registradas se conservan.`))
+                          deleteProvider.mutate(p.id);
+                      }}
+                      disabled={deleteProvider.isPending}
+                      className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                    >
+                      <Trash2 size={13} strokeWidth={2} /> Eliminar
+                    </button>
                   </td>
                 )}
               </tr>
             ))}
+            {!isLoading && !!data?.length && activeProviders.length === 0 && (
+              <tr>
+                <td colSpan={isOwner ? 6 : 5} className="py-3 text-slate-400">
+                  No hay proveedores activos.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </Card>
