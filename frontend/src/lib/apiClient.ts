@@ -49,14 +49,16 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * El backend gratuito (Render) se duerme tras ~15 minutos sin tráfico y
- * tarda hasta un minuto en despertar. Sin este reintento, la primera
- * petición al volver a la app fallaba por ese arranque lento y se
- * interpretaba como sesión vencida, cerrando la sesión de la nada aunque
- * el token siguiera siendo válido.
+ * El backend gratuito (Render) se duerme tras ~15 minutos sin tráfico, y
+ * despertarlo de verdad (arrancar Node + el motor de Prisma + reconectar a
+ * la base de datos) puede tardar 30-90 segundos, no solo unos pocos. Un
+ * reintento corto (que fue el primer intento de arreglar esto) no alcanzaba
+ * a esperar eso, así que la sesión igual se cerraba de la nada aunque el
+ * token siguiera siendo válido. Este reintento insiste durante ~100
+ * segundos antes de rendirse.
  */
 async function refreshAccessTokenWithRetries(): Promise<string> {
-  const delaysMs = [0, 3000, 8000];
+  const delaysMs = [0, 3000, 6000, 10000, 15000, 20000, 20000, 25000];
   let lastError: unknown;
   for (const delay of delaysMs) {
     if (delay) await sleep(delay);
