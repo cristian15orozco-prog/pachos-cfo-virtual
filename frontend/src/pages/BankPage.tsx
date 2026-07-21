@@ -1,7 +1,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePlaidLink } from "react-plaid-link";
-import { Landmark, Wallet } from "lucide-react";
+import { Landmark, Wallet, Trash2 } from "lucide-react";
 import { api } from "../lib/apiClient";
 import { Card, Metric, Badge, money, formatDateOnly, PageHeading } from "../components/ui";
 import { Modal, FormField, inputClass } from "../components/Modal";
@@ -141,6 +141,19 @@ export function BankPage() {
     adjustManualBalance.mutate();
   }
 
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deleteMovement = useMutation({
+    mutationFn: (id: string) => api.delete(`/bank/manual-balance/movements/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["bank-manual-movements"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["cashflow-summary"] });
+      setDeleteError(null);
+    },
+    onError: (err: Error) => setDeleteError(err.message),
+  });
+
   const isManual = accounts.data?.isManual ?? false;
 
   return (
@@ -220,6 +233,7 @@ export function BankPage() {
 
       {isManual && (
         <Card title="Historial de depósitos manuales">
+          {deleteError && <p className="text-sm text-red-600 mb-3">{deleteError}</p>}
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-slate-400 border-b border-slate-100">
@@ -228,10 +242,11 @@ export function BankPage() {
                 <th>Notas</th>
                 <th className="text-right">Monto</th>
                 <th className="text-right">Saldo</th>
+                {canManage && <th></th>}
               </tr>
             </thead>
             <tbody>
-              {manualMovements.data?.map((m) => (
+              {manualMovements.data?.map((m, i) => (
                 <tr key={m.id} className="border-b border-slate-50">
                   <td className="py-2">{new Date(m.createdAt).toLocaleDateString()}</td>
                   <td>
@@ -245,11 +260,27 @@ export function BankPage() {
                     {money(m.amount)}
                   </td>
                   <td className="text-right font-medium">{money(m.balanceAfter)}</td>
+                  {canManage && (
+                    <td className="text-right pl-3 whitespace-nowrap">
+                      {i === 0 && (
+                        <button
+                          onClick={() => {
+                            if (confirm("¿Eliminar este movimiento? El saldo volverá al valor anterior."))
+                              deleteMovement.mutate(m.id);
+                          }}
+                          disabled={deleteMovement.isPending}
+                          className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                        >
+                          <Trash2 size={13} strokeWidth={2} /> Eliminar
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
               {!manualMovements.data?.length && (
                 <tr>
-                  <td colSpan={5} className="py-3 text-slate-400">
+                  <td colSpan={6} className="py-3 text-slate-400">
                     Sin movimientos manuales todavía.
                   </td>
                 </tr>

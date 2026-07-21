@@ -142,6 +142,25 @@ router.post(
   })
 );
 
+router.delete(
+  "/manual-balance/movements/:id",
+  requireRole("OWNER", "ADMIN"),
+  auditAction("BANK_MANUAL_MOVEMENT_DELETE", "bank_movement"),
+  asyncHandler(async (req, res) => {
+    const latest = await prisma.bankMovement.findFirst({ orderBy: { createdAt: "desc" } });
+    if (!latest || latest.id !== req.params.id) {
+      return res.status(400).json({
+        error: {
+          code: "NOT_LATEST_MOVEMENT",
+          message: "Solo se puede eliminar el movimiento manual más reciente, para no descuadrar el historial.",
+        },
+      });
+    }
+    await prisma.bankMovement.delete({ where: { id: req.params.id } });
+    res.status(204).send();
+  })
+);
+
 router.get(
   "/transactions",
   requireRole("ADMIN", "ACCOUNTANT"),
