@@ -44,11 +44,36 @@ async function refreshAccessToken(): Promise<string> {
   return refreshInFlight;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * El backend gratuito (Render) se duerme tras ~15 minutos sin tráfico y
+ * tarda hasta un minuto en despertar. Sin este reintento, la primera
+ * petición al volver a la app fallaba por ese arranque lento y se
+ * interpretaba como sesión vencida, cerrando la sesión de la nada aunque
+ * el token siguiera siendo válido.
+ */
+async function refreshAccessTokenWithRetries(): Promise<string> {
+  const delaysMs = [0, 3000, 8000];
+  let lastError: unknown;
+  for (const delay of delaysMs) {
+    if (delay) await sleep(delay);
+    try {
+      return await refreshAccessToken();
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
+}
+
 async function withAuthRetry(path: string, doFetch: () => Promise<Response>): Promise<Response> {
   const res = await doFetch();
   if (res.status === 401 && path !== "/auth/refresh" && path !== "/auth/login") {
     try {
-      await refreshAccessToken();
+      await refreshAccessTokenWithRetries();
       return await doFetch();
     } catch {
       accessToken = null;
