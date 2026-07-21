@@ -24,9 +24,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Si el token vence y renovarlo también falla (ej. la cookie de sesión de
-    // 7 días ya expiró), esto saca al usuario para que vuelva a entrar, en
-    // vez de dejar la app en un estado roto donde todo falla en silencio.
+    // Si el token vence y renovarlo también falla (ej. la cookie de sesión ya
+    // expiró — ahora dura 365 días), esto saca al usuario para que vuelva a
+    // entrar, en vez de dejar la app en un estado roto donde todo falla en
+    // silencio.
     setOnAuthFailure(() => setUser(null));
 
     api
@@ -38,6 +39,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
+
+    // Renueva la sesión sola cada 10 minutos mientras la pestaña siga
+    // abierta — el token de acceso dura 15 minutos, así que sin esto una
+    // pestaña abierta sin actividad podía quedarse "colgada" hasta la
+    // siguiente acción. Esto también reinicia el reloj de la cookie de 365
+    // días (ventana deslizante), para que el programa se quede abierto
+    // indefinidamente mientras se use al menos una vez al año.
+    const interval = setInterval(
+      () => {
+        api
+          .post<{ accessToken: string }>("/auth/refresh")
+          .then(({ accessToken }) => setAccessToken(accessToken))
+          .catch(() => {
+            // Un fallo puntual (ej. el backend gratuito de Render despertando de
+            // su modo inactivo) no debe cerrar la sesión — solo se sale si una
+            // acción real del usuario también falla, vía onAuthFailure.
+          });
+      },
+      10 * 60 * 1000
+    );
+    return () => clearInterval(interval);
   }, []);
 
   async function login(email: string, password: string) {

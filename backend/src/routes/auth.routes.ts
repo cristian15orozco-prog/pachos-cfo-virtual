@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Response } from "express";
 import { z } from "zod";
 import { login, verifyRefreshToken, issueTokens } from "../modules/auth/authService";
 import { prisma } from "../lib/prisma";
@@ -13,6 +13,26 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+// Sesión "siempre abierta": el refresh token dura 365 días y, cada vez que
+// se usa (login o /refresh), se reemite con el reloj a cero (ventana
+// deslizante) — mientras la app se abra al menos una vez al año, nunca pide
+// iniciar sesión de nuevo.
+const REFRESH_COOKIE_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
+
+// sameSite "none" es obligatorio aquí: el frontend (Vercel) y el backend
+// (Render) viven en dominios distintos, así que toda petición entre
+// ellos es "cross-site" — con "strict" el navegador nunca mandaba esta
+// cookie de vuelta, /auth/refresh siempre fallaba, y la sesión se
+// cerraba sola a los 15 minutos sin importar el reintento automático.
+function setRefreshCookie(res: Response, token: string) {
+  res.cookie("refreshToken", token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    maxAge: REFRESH_COOKIE_MAX_AGE_MS,
+  });
+}
+
 router.post(
   "/login",
   asyncHandler(async (req, res) => {
@@ -24,17 +44,7 @@ router.post(
     try {
       const tokens = await login(parsed.data.email, parsed.data.password);
       await recordAudit({ req, action: "LOGIN", entityType: "user" });
-      // sameSite "none" es obligatorio aquí: el frontend (Vercel) y el backend
-      // (Render) viven en dominios distintos, así que toda petición entre
-      // ellos es "cross-site" — con "strict" el navegador nunca mandaba esta
-      // cookie de vuelta, /auth/refresh siempre fallaba, y la sesión se
-      // cerraba sola a los 15 minutos sin importar el reintento automático.
-      res.cookie("refreshToken", tokens.refreshToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: "none",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
+      setRefreshCookie(res, tokens.refreshToken);
       return res.json({ accessToken: tokens.accessToken });
     } catch {
       await recordAudit({ req, action: "LOGIN_FAILED", entityType: "user" });
@@ -53,6 +63,7 @@ router.post(
       const { sub } = verifyRefreshToken(token);
       const user = await prisma.user.findUniqueOrThrow({ where: { id: sub }, include: { role: true } });
       const tokens = issueTokens(user.id, user.role.name);
+      setRefreshCookie(res, tokens.refreshToken);
       res.json({ accessToken: tokens.accessToken });
     } catch {
       res.status(401).json({ error: { code: "UNAUTHENTICATED", message: "Refresh token inválido" } });
